@@ -1,0 +1,115 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  width: var(--nav-w);
+  height: 100%;
+  padding: var(--s-3) var(--s-3) var(--s-8);
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border);
+  transition: width var(--transition);
+}
+
+/* アイコンだけの細い状態 */
+.rail {
+  width: var(--nav-w-rail);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  border-radius: var(--r-lg);
+}
+
+.row:hover {
+  background: var(--c-surface-hover);
+}
+
+.link {
+  display: flex;
+  flex: 1;
+  gap: var(--s-3);
+  align-items: center;
+  min-width: 0;
+  padding: var(--s-3);
+  color: var(--c-text);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  border-radius: var(--r-lg);
+}
+
+.link:hover {
+  text-decoration: none;
+}
+
+.row[data-active='true'] {
+  background: var(--c-surface-selected);
+}
+
+.icon {
+  flex: none;
+  color: var(--c-text);
+}
+
+.label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.toggle {
+  flex: none;
+  margin-right: var(--s-2);
+  color: var(--c-text-muted);
+}
+
+.toggle:hover {
+  background: transparent;
+}
+
+/* --- 第 2 階層 -------------------------------------------------------- */
+.subList {
+  padding-left: var(--s-8);
+}
+
+.subLink {
+  display: block;
+  padding: var(--s-2) var(--s-3);
+  overflow: hidden;
+  color: var(--c-text-muted);
+  font-size: var(--fs-md);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: var(--r-md);
+}
+
+.subLink:hover {
+  color: var(--c-text);
+  text-decoration: none;
+  background: var(--c-surface-hover);
+}
+
+.subLink[data-active='true'] {
+  color: var(--c-text);
+  font-weight: var(--fw-bold);
+  background: var(--c-surface-selected);
+}
+
+/* --- rail 表示のとき --------------------------------------------------- */
+.rail .link {
+  justify-content: center;
+  padding-inline: var(--s-2);
+}
+
+.rail .label,
+.rail .toggle,
+.rail .subList {
+  display: none;
+}

@@ -14,7 +14,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "next typegen && tsc --noEmit",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm build",
     "db:app:generate": "drizzle-kit generate --config=drizzle/app.config.ts",
     "db:app:migrate": "drizzle-kit migrate --config=drizzle/app.config.ts",

@@ -1,0 +1,95 @@
+/*
+ * デザイントークン。
+ *
+ * 画面の見た目に関する「決めごと」はすべてここに集約する。
+ * 個々のコンポーネントは生の値 (#f2f2f2 や 16px) を書かず、必ずこの変数を参照する。
+ * 配色やサイズを変えたいときはこのファイルだけを触れば全画面に伝播する。
+ */
+:root {
+  color-scheme: light;
+
+  /* --- font ------------------------------------------------------------ */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue',
+    'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo,
+    sans-serif;
+
+  /* --- color ----------------------------------------------------------- */
+  --c-bg: #ffffff;
+  --c-surface: #ffffff;
+  /* カード・パネルの下地 (ダッシュボードのお知らせ枠) */
+  --c-surface-muted: #f2f2f2;
+  --c-surface-hover: #ebebeb;
+  /* ナビゲーションの選択中 / ホバー */
+  --c-surface-selected: #ebebeb;
+
+  --c-border: #e4e4e4;
+  --c-border-strong: #c9c9c9;
+
+  --c-text: #1a1a1a;
+  --c-text-muted: #6b6b6b;
+  --c-text-faint: #949494;
+
+  --c-primary: #1668c9;
+  --c-primary-hover: #12559f;
+  --c-primary-soft: #eaf2fc;
+  --c-on-primary: #ffffff;
+
+  --c-focus: #4c8ee0;
+  --c-backdrop: rgb(0 0 0 / 35%);
+
+  /* --- radius ---------------------------------------------------------- */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-full: 999px;
+
+  /* --- space (4px スケール) -------------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* --- font size ------------------------------------------------------- */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+  --fs-3xl: 30px;
+
+  --fw-normal: 400;
+  --fw-bold: 700;
+
+  /* --- layout ---------------------------------------------------------- */
+  --header-h: 68px;
+  --nav-w: 280px;
+  --nav-w-rail: 72px;
+  --content-max: 1680px;
+
+  /* --- elevation ------------------------------------------------------- */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 6%);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 12%);
+  --shadow-lg: 0 6px 20px rgb(0 0 0 / 22%);
+
+  /* --- motion ---------------------------------------------------------- */
+  --transition: 160ms ease;
+}
+
+/* 画面が狭いときはヘッダーを詰める。サイドバーの位置計算もこの変数に追従する */
+@media (max-width: 899px) {
+  :root {
+    --header-h: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition: 0ms;
+  }
+}

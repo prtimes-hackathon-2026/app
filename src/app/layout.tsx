@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next'
+import '@/shared/ui/styles/tokens.css'
+import '@/shared/ui/styles/base.css'
 
 export const metadata: Metadata = {
   title: 'app',
