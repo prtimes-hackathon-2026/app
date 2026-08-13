@@ -1,0 +1,28 @@
+name: Preview Cleanup
+
+# PR を閉じたらプレビューを消す。イメージの publish を待つ必要がないので、
+# docker-publish.yml とは別のワークフローにしてある。
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  remove:
+    # fork からの PR ではそもそもプレビューを作っていない (docker-publish.yml の
+    # build ジョブが弾く)。secrets も渡ってこないのでここで降りる
+    if: >-
+      vars.PREVIEW_ENABLED == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/preview.yml
+    with:
+      pr_number: ${{ github.event.pull_request.number }}
+      remove: true
+    secrets:
+      TFC_TOKEN: ${{ secrets.TFC_TOKEN }}
+    permissions:
+      contents: read
+      pull-requests: write
+    # 登録側と同じグループ名にして、TFC の変数の読み書きを直列化する
+    concurrency:
+      group: preview-tfc
+      cancel-in-progress: false
