@@ -5,6 +5,7 @@
 export { cx } from './cx'
 
 export { Icon, iconNames, type IconName } from './icon/icon'
+export { PrTimesLogo } from './brand/prtimes-logo'
 
 export {
   Button,

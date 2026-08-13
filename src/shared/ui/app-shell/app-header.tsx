@@ -29,8 +29,13 @@ export function AppHeader({
 }: AppHeaderProps) {
   return (
     <header className={styles.header}>
-      <Link href={brand.href} className={styles.brand}>
-        {brand.name}
+      {/* ロゴは絵なので、リンクの名前は brand.name から補う */}
+      <Link
+        href={brand.href}
+        className={styles.brand}
+        aria-label={brand.logo ? brand.name : undefined}
+      >
+        {brand.logo ?? brand.name}
       </Link>
 
       {actions && actions.length > 0 && (

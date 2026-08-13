@@ -1,4 +1,5 @@
 import {
+  PrTimesLogo,
   type AccountInfo,
   type BrandInfo,
   type HeaderAction,
@@ -17,6 +18,7 @@ import {
 export const brand: BrandInfo = {
   name: 'PR TIMES',
   href: '/dashboard',
+  logo: <PrTimesLogo />,
 }
 
 export const headerActions: HeaderAction[] = [

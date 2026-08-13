@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { type IconName } from '../icon/icon'
 import { type Crumb } from '../page/breadcrumb'
 
@@ -33,8 +34,11 @@ export type AccountInfo = {
 }
 
 export type BrandInfo = {
+  /** 読み上げと、ロゴを渡さないときの表示に使うサービス名 */
   name: string
   href: string
+  /** ロゴマーク。渡すと name の代わりにこれを出す */
+  logo?: ReactNode
 }
 
 /** 現在地の判定。完全一致か、配下のパスであれば true */
