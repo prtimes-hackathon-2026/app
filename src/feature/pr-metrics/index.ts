@@ -11,6 +11,24 @@ export type { CompanyFactsBundle } from './domain/company-facts-bundle'
 export type { StoppedCompany } from './domain/metrics-repository'
 
 /**
+ * 機能カタログと配信本数のバケットは、この feature が正を持つ。
+ *
+ * 対話側 (pr-agent) は提案する機能をここからしか選べない。そうすることで
+ * 「実在しない機能を提案しない」が構造的に守られる。LLM は機能名を作れない。
+ * バケットの刻みも当たり率カーブの集計と揃っている必要があるため、
+ * 対話側に複製させず関数ごと公開する。
+ */
+export {
+  articlesByInterest,
+  featuresByInterest,
+  interests,
+  type InterestId,
+  type MagazineArticle,
+  type PrFeature,
+} from './domain/feature-catalog'
+export { bucketOf, type BucketLabel } from './domain/bucket'
+
+/**
  * PR TIMES DB に繋がっていなければ模擬データで動かす (設計 §4 の全経路 degrade)。
  *
  * env() を使わず生の環境変数を見ているのは、env() が未設定なら例外を投げる作りで、
