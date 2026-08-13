@@ -33,17 +33,57 @@ function toConversation(row: appSchema.PrConversationRow): Conversation {
   }
 }
 
+function toDate(value: unknown): Date | null {
+  if (value === null || value === undefined) return null
+  if (value instanceof Date) return value
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 /**
- * 保存した提示物を読み戻す。JSON なので Date は文字列になっている。
- * 履歴は後から人間が読んで分析するためのもので、再生には使わない。
+ * 保存した提示物の Date を戻す。
+ *
+ * payload は jsonb なので、書き込むときに Date が文字列へ潰れる。
+ * 画面は描画の正をこの読み戻しに置いている (POST の応答で描き直すと同じ理由で
+ * 型が崩れるため) ので、文字列のまま返すと Turn の型が嘘になる。
+ * 実際それで Intl.DateTimeFormat が RangeError で落ち、画面が 500 になった。
+ *
+ * Date を持つのは診断ブロックだけなので、その 2 か所だけを戻す。
+ * turn.ts の Block に Date を増やしたらここも足すこと。
  */
+function reviveTurn(turn: Turn): Turn {
+  return {
+    ...turn,
+    blocks: turn.blocks.map((block) =>
+      block.kind === 'diagnosis'
+        ? {
+            ...block,
+            lastReleasedAt: toDate(block.lastReleasedAt),
+            recent: block.recent.map((release) => ({
+              ...release,
+              releasedAt: toDate(release.releasedAt),
+            })),
+          }
+        : block,
+    ),
+  }
+}
+
+function isTurn(payload: unknown): payload is Turn {
+  return typeof payload === 'object' && payload !== null && 'turn' in payload
+}
+
 function toConversationTurn(
   row: appSchema.PrConversationTurnRow,
 ): ConversationTurn {
   return {
     position: row.position,
     role: row.role,
-    payload: row.payload as Turn | UserAnswer,
+    payload: isTurn(row.payload)
+      ? reviveTurn(row.payload)
+      : (row.payload as UserAnswer),
   }
 }
 

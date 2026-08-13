@@ -44,6 +44,31 @@ import type {
 const monthMs = 1000 * 60 * 60 * 24 * 30.4
 
 /**
+ * 生の SQL が返す時刻。ドライバの型パーサを通らず
+ * '2025-11-13 16:50:16' のような文字列で来ることがある。
+ */
+type TimestampValue = Date | string | number | null | undefined
+
+/**
+ * 時刻を必ず Date にして境界の外へ出す。
+ *
+ * domain は Date と宣言しているので、文字列のまま通すと型が嘘になる。
+ * 実際それで 2 か所が壊れていた。Intl.DateTimeFormat#format は引数を
+ * ToNumber するため文字列だと NaN になって RangeError で落ち、
+ * 停止期間の getTime() は関数が無いと言って落ちる。
+ * どちらも「値はあるのに全件で必ず throw する」壊れ方をする。
+ *
+ * パースできない値は null に倒す。時刻が読めないことより、
+ * 画面全体が 500 になることのほうが困る。
+ */
+function toDate(value: TimestampValue): Date | null {
+  if (value === null || value === undefined) return null
+
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/**
  * SQL の CASE 式が返すバケット名を型に落とす。
  *
  * SQL 側の境界は domain/bucket.ts の bucketOf と完全に一致していなければならない。
@@ -81,19 +106,19 @@ type CompanyRow = {
    * 実 RDS の型が未照合なのでどちらでも受け、数値化はこちらで行う。
    */
   readonly capital: string | number | null
-  readonly foundation_date: Date | null
+  readonly foundation_date: TimestampValue
   readonly description: string | null
 }
 
 type HistoryAggRow = {
   readonly total_releases: number
-  readonly first_released_at: Date | null
-  readonly last_released_at: Date | null
+  readonly first_released_at: TimestampValue
+  readonly last_released_at: TimestampValue
 }
 
 type RecentReleaseRow = {
   readonly title: string | null
-  readonly released_at: Date | null
+  readonly released_at: TimestampValue
   readonly page_view: number | null
 }
 
@@ -166,7 +191,7 @@ type StoppedCompanyRow = {
   readonly company_name: string | null
   readonly industry_name: string | null
   readonly releases: number
-  readonly last_at: Date | null
+  readonly last_at: TimestampValue
 }
 
 /**
@@ -232,7 +257,7 @@ export function drizzleMetricsRepository(): MetricsRepository {
         industryId: row.industry_id,
         industryName: row.industry_name,
         capital: row.capital === null ? null : Number(row.capital),
-        foundationDate: row.foundation_date,
+        foundationDate: toDate(row.foundation_date),
         description: row.description,
       }
       return profile
@@ -257,11 +282,11 @@ export function drizzleMetricsRepository(): MetricsRepository {
       ])
 
       const agg = aggRows[0]
-      const lastReleasedAt = agg?.last_released_at ?? null
+      const lastReleasedAt = toDate(agg?.last_released_at)
 
       const history: CompanyHistory = {
         totalReleases: agg?.total_releases ?? 0,
-        firstReleasedAt: agg?.first_released_at ?? null,
+        firstReleasedAt: toDate(agg?.first_released_at),
         lastReleasedAt,
         stoppedMonths:
           lastReleasedAt === null
@@ -272,7 +297,7 @@ export function drizzleMetricsRepository(): MetricsRepository {
               ),
         recent: recentRows.map((row) => ({
           title: row.title,
-          releasedAt: row.released_at,
+          releasedAt: toDate(row.released_at),
           pageView: row.page_view,
         })),
       }
@@ -583,7 +608,7 @@ export function drizzleMetricsRepository(): MetricsRepository {
         companyName: row.company_name,
         industryName: row.industry_name,
         releases: row.releases,
-        lastReleasedAt: row.last_at,
+        lastReleasedAt: toDate(row.last_at),
       }))
       return companies
     },
