@@ -192,7 +192,8 @@ export function answerInterest(deps: AnswerInterestDeps): AnswerInterest {
     if (trend) draft.trend = trend
     const firstFeature = features[0]
     if (firstFeature) {
-      draft.feature = `${interestLabel(deps.catalog, interest)}であれば、${firstFeature.name}が使えます。`
+      // 関心のラベルは「〜したい」で終わる文なので、括ってから続けないと文が繋がらない
+      draft.feature = `「${interestLabel(deps.catalog, interest)}」であれば、${firstFeature.name}が使えます。`
     }
 
     const best = trends.items[0]

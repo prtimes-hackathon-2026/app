@@ -134,8 +134,9 @@ export function confirmPlan(deps: ConfirmPlanDeps): ConfirmPlan {
     const baseline = fromReleaseCount(snapshot)
     candidates.push(baseline)
 
-    // 「この方向でいく」なら先頭、「別の一手にしたい」なら次の候補を出す
-    const index = answer.choiceId === 'ok' ? 0 : 1
+    // 先頭は効果差分の分かっている候補なので、明示的に「別の一手にしたい」と
+    // 言われたときだけ次の候補に譲る。自由入力は同意とも否定とも取れるので動かさない
+    const index = answer.choiceId === 'other' ? 1 : 0
     const picked =
       candidates[Math.min(index, candidates.length - 1)] ?? baseline
 

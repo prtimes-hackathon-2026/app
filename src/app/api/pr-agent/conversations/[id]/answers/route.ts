@@ -10,7 +10,9 @@ import { errorResponse, readJson } from '../../../http'
  *
  * 動的セグメントの `params` は Promise なので await する。
  * 型は typegen が生成するグローバルヘルパー `RouteContext<...>` を使う (import 不要)。
- * ルートのリテラルを渡すため、パスを打ち間違えるとその場で型エラーになる。
+ * ルートのリテラルを実在するルートと突き合わせるので、パスを打ち間違えると型エラーになる。
+ * 生成物なので、これを使う以上 `tsc` の前に `next typegen` が要る
+ * (package.json の typecheck をそうしてある)。
  */
 
 const answerSchema = z

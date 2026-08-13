@@ -64,6 +64,7 @@ export function startConversation(
 
     const { company, history, hitCurve, resume } = snapshot
     const segment = resume?.segment ?? null
+    // 「これだけ空いてからでも戻れる」を示す一番強い段。休止期間の刻みは指標側が持つ
     const longGap = resume?.gaps.find((g) => g.gap === '2年以上') ?? null
     const here = hitCurve?.buckets.find((b) => b.bucket === snapshot.bucket)
     // 最も多く配信している企業群。カーブは本数の昇順に並んでいる
