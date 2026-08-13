@@ -1,0 +1,13 @@
+services:
+  agent:
+    build: .
+    ports:
+      - "3100:3100"
+    env_file:
+      - .env
+    environment:
+      PORT: 3100
+    volumes:
+      - ./src:/srv/src
+      - ./public:/srv/public
+    restart: unless-stopped
