@@ -1,0 +1,55 @@
+name: Preview Reconcile
+
+# 夜間の再収束。preview_pull_requests を「open な PR だけ」に書き換える。
+#
+# TTL で古いものを消す方式ではなく、あるべき状態を毎回計算し直す方式にしている。
+# close イベントの取りこぼし、ワークフローの失敗、concurrency で待たされた実行が
+# 打ち切られたケースなどを、原因によらずまとめて回収できるため。
+# プレビュー環境が静かに課金され続けるのは定番の事故なので、ここまでで 1 セット。
+on:
+  schedule:
+    # 03:00 JST (18:00 UTC)
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+# 登録側・削除側と同じグループ名にして、TFC の変数の読み書きを直列化する
+concurrency:
+  group: preview-tfc
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: vars.PREVIEW_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      pull-requests: read
+
+    env:
+      TFC_TOKEN: ${{ secrets.TFC_TOKEN }}
+      TFC_ORGANIZATION: ${{ vars.TFC_ORGANIZATION || 'prtimes-hackathon-2026' }}
+      TFC_WORKSPACE: ${{ vars.TFC_PREVIEW_WORKSPACE || 'aws-preview' }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: open な PR の一覧を取る
+        id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          numbers=$(gh api "repos/${REPO}/pulls?state=open&per_page=100" --paginate --jq '.[].number' |
+            jq -sc 'sort')
+          echo "open な PR: ${numbers}"
+          echo "numbers=${numbers}" >>"$GITHUB_OUTPUT"
+
+      # 変化がなければ run を起こさずに終わる (静かな夜は何も起きない)
+      - name: 閉じた PR のプレビューを落とす
+        run: .github/scripts/preview-tfc.sh reconcile "${OPEN_NUMBERS}"
+        env:
+          OPEN_NUMBERS: ${{ steps.open.outputs.numbers }}
