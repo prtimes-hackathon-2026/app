@@ -12,3 +12,6 @@ build/
 *.log
 .DS_Store
 README.md
+
+# Next.js のイメージには含めない別アプリ (Express の試作)
+voice-agent/
