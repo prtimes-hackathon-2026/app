@@ -1,0 +1,328 @@
+.page {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 0;
+  height: calc(100dvh - var(--header-h) - 44px);
+  overflow: hidden;
+}
+
+/* ────────────────────────────────────────────
+   左パネル：聞き取りメモ
+──────────────────────────────────────────── */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-5);
+  overflow-y: auto;
+  border-right: 1px solid var(--c-border);
+  background: var(--c-surface-muted);
+}
+
+.memoHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  color: var(--c-text-muted);
+}
+
+.memoHeaderLabel {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* 空状態のプレースホルダー */
+.memoEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-3);
+  padding: var(--s-8) var(--s-4);
+  text-align: center;
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+.memoEmptyIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--c-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-faint);
+}
+
+/* メモ本体 */
+.memoBody {
+  flex: 1;
+  font-size: var(--fs-sm);
+  line-height: 1.9;
+  color: var(--c-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* 手記らしい若干温かみのある表示 */
+  letter-spacing: 0.01em;
+}
+
+.memoUpdating {
+  opacity: 0.6;
+  animation: fadeInOut 1.2s ease infinite;
+}
+
+@keyframes fadeInOut {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* フェーズバッジ */
+.phaseBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding: 2px var(--s-2);
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
+.phaseBadgeDiscovery {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.phaseBadgeFreeTalk {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.phaseBadgeProposal {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+/* ────────────────────────────────────────────
+   右パネル：チャット
+──────────────────────────────────────────── */
+.chat {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s-6) var(--s-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+/* バブル */
+.bubble {
+  max-width: 680px;
+  line-height: 1.75;
+  font-size: var(--fs-md);
+}
+
+.bubbleAi {
+  align-self: flex-start;
+}
+
+.bubbleUser {
+  align-self: flex-end;
+}
+
+.bubbleInner {
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--r-lg);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubbleAi .bubbleInner {
+  background: var(--c-surface-muted);
+  color: var(--c-text);
+  border-bottom-left-radius: var(--r-sm);
+}
+
+.bubbleUser .bubbleInner {
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  border-bottom-right-radius: var(--r-sm);
+}
+
+.bubbleLabel {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  margin-bottom: var(--s-1);
+}
+
+.bubbleAi .bubbleLabel {
+  margin-left: 2px;
+}
+.bubbleUser .bubbleLabel {
+  text-align: right;
+  margin-right: 2px;
+}
+
+/* タイピングアニメ */
+.typing {
+  display: flex;
+  gap: 4px;
+  padding: var(--s-4) var(--s-5);
+  background: var(--c-surface-muted);
+  border-radius: var(--r-lg);
+  border-bottom-left-radius: var(--r-sm);
+  align-self: flex-start;
+  width: fit-content;
+}
+
+.typingDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-text-faint);
+  animation: bounce 1.2s infinite;
+}
+
+.typingDot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typingDot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+/* 完了バナー */
+.completeBanner {
+  margin: var(--s-4) 0;
+  padding: var(--s-4) var(--s-5);
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: var(--r-md);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.completeBannerText {
+  flex: 1;
+  font-size: var(--fs-sm);
+  color: #15803d;
+  font-weight: var(--fw-bold);
+}
+
+/* 入力エリア */
+.inputArea {
+  padding: var(--s-4) var(--s-6);
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+.inputRow {
+  display: flex;
+  gap: var(--s-3);
+  align-items: flex-end;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.textarea {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+  padding: var(--s-3) var(--s-4);
+  font-size: var(--fs-md);
+  font-family: inherit;
+  line-height: 1.6;
+  outline: none;
+  transition: border-color var(--transition);
+  min-height: 44px;
+  max-height: 140px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+
+.textarea:focus {
+  border-color: var(--c-focus);
+}
+
+.sendBtn {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--c-primary);
+  color: var(--c-on-primary);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition);
+}
+
+.sendBtn:hover:not(:disabled) {
+  background: var(--c-primary-hover);
+}
+
+.sendBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.hintText {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  text-align: center;
+  margin-top: var(--s-2);
+}
+
+/* レスポンシブ */
+@media (max-width: 899px) {
+  .page {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .sidebar {
+    max-height: 220px;
+    border-right: none;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .chat {
+    height: calc(100dvh - var(--header-h) - 44px - 220px);
+  }
+}

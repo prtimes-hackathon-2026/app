@@ -10,6 +10,7 @@ import {
   StatGrid,
   StatTile,
 } from '@/shared/ui'
+import { PrCompassBanner } from './pr-compass-banner'
 
 export const metadata: Metadata = {
   title: 'ダッシュボード',
@@ -98,6 +99,9 @@ export default function DashboardPage() {
       <PageHeader title="ダッシュボード" />
 
       <Stack gap={4}>
+        {/* 長期間未配信の企業向け再確認バナー */}
+        <PrCompassBanner />
+
         {notices.map((notice) => (
           <CollapsibleCard
             key={notice.id}

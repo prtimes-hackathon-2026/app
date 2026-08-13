@@ -52,6 +52,11 @@ export const navigation: NavItem[] = [
     icon: 'dashboard',
   },
   {
+    label: 'PR羅針盤',
+    href: '/pr-compass',
+    icon: 'chat',
+  },
+  {
     label: 'プレスリリース',
     href: '/press-releases',
     icon: 'document',
