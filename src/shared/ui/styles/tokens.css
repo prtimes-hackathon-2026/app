@@ -35,6 +35,10 @@
   --c-primary-soft: #eaf2fc;
   --c-on-primary: #ffffff;
 
+  /* エラー・失敗の表示 (疎通失敗のバッジなど) */
+  --c-danger: #b42318;
+  --c-danger-soft: #fdeceb;
+
   --c-focus: #4c8ee0;
   --c-backdrop: rgb(0 0 0 / 35%);
 

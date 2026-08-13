@@ -84,7 +84,9 @@ src/shared/ui/
 `src/app/(dashboard)/[...slug]/page.tsx` が見出しだけを出す。
 `navigation` に無い URL はここで 404 になる。
 
-なお `/` は DB 疎通確認用のページのままにしてある。管理画面の入口は `/dashboard`。
+アプリの入口は `/dashboard` の 1 つだけ。`/` は `next.config.ts` の `redirects()` で
+`/dashboard` へ送る (307)。DB の疎通確認は `/` の専用ページではなく、
+ダッシュボードの「データベースのテーブル一覧」カードで見る。
 
 ## ORM: Drizzle ORM
 

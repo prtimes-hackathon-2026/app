@@ -1,0 +1,106 @@
+.grid {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+/* DB 1 つ分の枠 */
+.database {
+  overflow: hidden;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+
+.databaseHeader {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  color: var(--c-text-muted);
+  background: var(--c-surface-muted);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.databaseName {
+  font-size: var(--fs-md);
+  color: var(--c-text);
+}
+
+.databaseNote {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.badge {
+  flex: none;
+  margin-left: auto;
+  padding: 2px var(--s-2);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+  border-radius: var(--r-full);
+}
+
+.badgeOk {
+  color: var(--c-primary);
+  background: var(--c-primary-soft);
+}
+
+.badgeError {
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+}
+
+/* テーブルが多い DB でもカードの高さが崩れないよう、ここだけスクロールさせる */
+.tableScroll {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.table {
+  width: 100%;
+  font-size: var(--fs-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--s-2) var(--s-4);
+  text-align: left;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.table th {
+  position: sticky;
+  top: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+}
+
+.table tbody tr:last-child th,
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.schemaCell {
+  width: 40%;
+  color: var(--c-text-muted);
+}
+
+.message {
+  padding: var(--s-4);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.messageError {
+  color: var(--c-danger);
+  word-break: break-word;
+}
+
+.caption {
+  margin-top: var(--s-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

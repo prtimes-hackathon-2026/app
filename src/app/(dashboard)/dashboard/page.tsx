@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import {
   Card,
   CardBody,
@@ -10,11 +10,21 @@ import {
   StatGrid,
   StatTile,
 } from '@/shared/ui'
+import {
+  DatabaseTablesCard,
+  DatabaseTablesCardFallback,
+} from './database-tables-card'
 import { PrCompassBanner } from './pr-compass-banner'
 
 export const metadata: Metadata = {
   title: 'ダッシュボード',
 }
+
+/**
+ * DB のテーブル一覧を毎リクエスト取り直す。
+ * これを付けないとビルド時に prerender され、その時点の結果 (CI では接続失敗) が焼き付く。
+ */
+export const dynamic = 'force-dynamic'
 
 /**
  * ダッシュボード。
@@ -129,6 +139,11 @@ export default function DashboardPage() {
             </StatGrid>
           </CardBody>
         </Card>
+
+        {/* DB 疎通確認。問い合わせの間もここ以外は先に表示させる */}
+        <Suspense fallback={<DatabaseTablesCardFallback />}>
+          <DatabaseTablesCard />
+        </Suspense>
       </Stack>
     </>
   )
