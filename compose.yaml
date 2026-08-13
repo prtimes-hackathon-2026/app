@@ -1,0 +1,73 @@
+name: app
+
+services:
+  app:
+    build:
+      context: .
+      target: runner
+    ports:
+      - '${APP_PORT:-3000}:3000'
+    environment:
+      NODE_ENV: production
+      # ローカルでは app-db が AWS RDS の代役を務める
+      APP_DATABASE_URL: postgres://app:app@app-db:5432/app
+      APP_DATABASE_SSL: disable
+      APP_DATABASE_POOL_MAX: '10'
+      # ローカルでは stats-db が外部の統計 PostgreSQL の代役を務める
+      STATS_DATABASE_URL: postgres://stats_reader:stats@stats-db:5432/stats
+      STATS_DATABASE_SSL: disable
+      STATS_DATABASE_POOL_MAX: '5'
+    depends_on:
+      app-db:
+        condition: service_healthy
+      stats-db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:3000/api/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # このアプリが所有する DB。本番では AWS RDS に置き換わる
+  app-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - '${APP_DB_PORT:-5432}:5432'
+    volumes:
+      # postgres:18 以降は /var/lib/postgresql をマウントし、データはその配下に置く
+      - app-db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # 統計情報用の外部 PostgreSQL の代役。
+  # このアプリはマイグレーションを流さないので、スキーマは init.sql で用意する
+  stats-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: stats
+      POSTGRES_PASSWORD: stats
+      POSTGRES_DB: stats
+    ports:
+      - '${STATS_DB_PORT:-5433}:5432'
+    volumes:
+      - stats-db-data:/var/lib/postgresql
+      - ./docker/stats-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stats -d stats']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  app-db-data:
+  stats-db-data:
