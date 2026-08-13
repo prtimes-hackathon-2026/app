@@ -410,15 +410,13 @@
 .blocks {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: var(--s-3);
   margin-top: var(--s-3);
 }
 
 .card {
-  padding: var(--s-3);
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-md);
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--c-border);
 }
 
 .cardTitle {
@@ -446,8 +444,8 @@
   display: flex;
   align-items: baseline;
   gap: var(--s-2);
-  padding: var(--s-2) var(--s-3);
-  background: var(--c-surface-muted);
+  padding: var(--s-1) var(--s-3);
+  background: var(--c-surface);
   border-radius: var(--r-md);
 }
 
@@ -469,7 +467,7 @@
   gap: var(--s-3);
   padding: var(--s-2) var(--s-3);
   border-left: 2px solid var(--c-primary);
-  background: var(--c-surface-muted);
+  background: var(--c-surface);
   border-radius: 0 var(--r-md) var(--r-md) 0;
 }
 
@@ -509,7 +507,7 @@
 .bar {
   width: 100%;
   min-height: 2px;
-  background: var(--c-border);
+  background: var(--c-surface);
   border-radius: 2px 2px 0 0;
 }
 

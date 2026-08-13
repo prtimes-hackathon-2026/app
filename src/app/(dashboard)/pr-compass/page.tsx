@@ -442,8 +442,10 @@ export default function PrCompassPage() {
               <p className={styles.bubbleLabel}>
                 {m.role === 'assistant' ? 'PR TIMES 広報伴走AI' : 'あなた'}
               </p>
-              <div className={styles.bubbleInner}>{m.content}</div>
-              {m.role === 'assistant' && <Blocks blocks={m.blocks} />}
+              <div className={styles.bubbleInner}>
+                {m.content}
+                {m.role === 'assistant' && <Blocks blocks={m.blocks} />}
+              </div>
             </div>
           ))}
 
