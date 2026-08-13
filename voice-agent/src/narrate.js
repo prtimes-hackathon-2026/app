@@ -1,7 +1,7 @@
-import 'dotenv/config';
+import 'dotenv/config'
 
-const KEY = (process.env.OPENAI_API_KEY || '').trim();
-const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const KEY = (process.env.OPENAI_API_KEY || '').trim()
+const MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini'
 
 const SYSTEM = `あなたはPR TIMESの広報伴走エージェントの「言い換え」部品です。
 
@@ -22,32 +22,32 @@ facts には「御社が実際に出したリリース」「御社の事業内�
 - マーケ用語を使わない（KPI・ターゲット・リーチ・パーセンタイル等）
 - 断定しない。「差があります」と書き、「上がります」と書かない
 
-出力はJSONのみ。draft と同じキーを持たせること。各1〜3文、日本語。`;
+出力はJSONのみ。draft と同じキーを持たせること。各1〜3文、日本語。`
 
 /** AI SDK は言い換えにだけ使う。数値はすべてSQL側で算出済み。 */
 export async function narrate({ facts, draft }) {
-  if (!KEY) return { text: draft, source: 'テンプレート（OpenAIキー未設定）' };
+  if (!KEY) return { text: draft, source: 'テンプレート（OpenAIキー未設定）' }
 
   try {
-    const { generateText } = await import('ai');
-    const { createOpenAI } = await import('@ai-sdk/openai');
-    const openai = createOpenAI({ apiKey: KEY });
+    const { generateText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+    const openai = createOpenAI({ apiKey: KEY })
 
     const { text } = await generateText({
       model: openai(MODEL),
       system: SYSTEM,
       prompt: JSON.stringify({ facts, draft }, null, 2),
       temperature: 0.3,
-    });
+    })
 
-    const json = JSON.parse(text.replace(/^```(?:json)?|```$/gm, '').trim());
-    const out = { ...draft };
+    const json = JSON.parse(text.replace(/^```(?:json)?|```$/gm, '').trim())
+    const out = { ...draft }
     for (const k of Object.keys(draft)) {
-      if (typeof json[k] === 'string' && json[k].trim()) out[k] = json[k].trim();
+      if (typeof json[k] === 'string' && json[k].trim()) out[k] = json[k].trim()
     }
-    return { text: out, source: `AI SDK / ${MODEL}` };
+    return { text: out, source: `AI SDK / ${MODEL}` }
   } catch (e) {
-    console.error('[narrate]', e.message);
-    return { text: draft, source: `テンプレート（${e.name}）` };
+    console.error('[narrate]', e.message)
+    return { text: draft, source: `テンプレート（${e.name}）` }
   }
 }

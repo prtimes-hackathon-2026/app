@@ -1,14 +1,31 @@
-import pg from 'pg'; import 'dotenv/config';
-const p=new pg.Pool({host:'localhost',port:15432,database:'prtimes',
-  user:process.env.DATABASE_USER,password:process.env.DATABASE_PASS,
-  ssl:{rejectUnauthorized:false},max:2});
-const c=await p.connect(); await c.query("SET statement_timeout='170s'");
-const q=async(l,sql)=>{const t=Date.now();
-  try{const r=await c.query(sql);console.log(`\n■ ${l}  (${((Date.now()-t)/1000).toFixed(1)}s)`);console.table(r.rows.slice(0,14));}
-  catch(e){console.log(`\n■ ${l} → ${e.message.slice(0,130)}`)}};
+import pg from 'pg'
+import 'dotenv/config'
+const p = new pg.Pool({
+  host: 'localhost',
+  port: 15432,
+  database: 'prtimes',
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASS,
+  ssl: { rejectUnauthorized: false },
+  max: 2,
+})
+const c = await p.connect()
+await c.query("SET statement_timeout='170s'")
+const q = async (l, sql) => {
+  const t = Date.now()
+  try {
+    const r = await c.query(sql)
+    console.log(`\n■ ${l}  (${((Date.now() - t) / 1000).toFixed(1)}s)`)
+    console.table(r.rows.slice(0, 14))
+  } catch (e) {
+    console.log(`\n■ ${l} → ${e.message.slice(0, 130)}`)
+  }
+}
 
 // ② 同一企業内の前後比較。途中から画像を使い始めた企業だけを見る
-await q('画像を「使い始めた」企業の、使用前 vs 使用後（同一企業内）', `
+await q(
+  '画像を「使い始めた」企業の、使用前 vs 使用後（同一企業内）',
+  `
 WITH peers AS (SELECT company_id FROM company WHERE industry_id=7),
  rel AS (SELECT r.company_id,r.created_at,r.main_image,COALESCE(s.page_view,0) pv
          FROM release r JOIN peers p ON p.company_id=r.company_id
@@ -24,10 +41,13 @@ WITH peers AS (SELECT company_id FROM company WHERE industry_id=7),
                   WHEN r.created_at < t.first_img THEN 0.0 END)*100,1) before_pct,
    ROUND(AVG(CASE WHEN r.created_at >= t.first_img AND r.pv>=(SELECT t FROM thr) THEN 1.0
                   WHEN r.created_at >= t.first_img THEN 0.0 END)*100,1) after_pct
- FROM rel r JOIN target t ON t.company_id=r.company_id`);
+ FROM rel r JOIN target t ON t.company_id=r.company_id`,
+)
 
 // ③ 跳ねやすいキーワード（目的の材料）
-await q('この業種で跳ねやすいキーワード（上位）', `
+await q(
+  'この業種で跳ねやすいキーワード（上位）',
+  `
 WITH peers AS (SELECT company_id FROM company WHERE industry_id=7),
  rel AS (SELECT r.company_id,r.release_id,COALESCE(s.page_view,0) pv
          FROM release r JOIN peers p ON p.company_id=r.company_id
@@ -40,5 +60,7 @@ WITH peers AS (SELECT company_id FROM company WHERE industry_id=7),
  JOIN keyword k ON k.keyword_id=rk.keyword_id
  WHERE rk.sort_priority <= 3
  GROUP BY 1 HAVING COUNT(*)>=2000
- ORDER BY hit_pct DESC LIMIT 12`);
-c.release(); await p.end();
+ ORDER BY hit_pct DESC LIMIT 12`,
+)
+c.release()
+await p.end()

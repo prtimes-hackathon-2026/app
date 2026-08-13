@@ -1,9 +1,17 @@
-import pg from 'pg'; import 'dotenv/config';
-const p=new pg.Pool({host:'localhost',port:15432,database:'prtimes',
-  user:process.env.DATABASE_USER,password:process.env.DATABASE_PASS,
-  ssl:{rejectUnauthorized:false},max:2});
-const c=await p.connect(); await c.query("SET statement_timeout='180s'");
-const t=Date.now();
+import pg from 'pg'
+import 'dotenv/config'
+const p = new pg.Pool({
+  host: 'localhost',
+  port: 15432,
+  database: 'prtimes',
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASS,
+  ssl: { rejectUnauthorized: false },
+  max: 2,
+})
+const c = await p.connect()
+await c.query("SET statement_timeout='180s'")
+const t = Date.now()
 const r = await c.query(`
 WITH peers AS (SELECT company_id FROM company WHERE industry_id = 7),
 rel AS (
@@ -35,7 +43,10 @@ SELECT months,
        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY cum_pv)::int AS cum_pv_p75,
        PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY cum_pv)::int AS cum_pv_p90,
        (SELECT ROUND(t)::int FROM thr) AS threshold_pv
-  FROM win GROUP BY months ORDER BY months`);
-console.log(`\n■ 情報通信：初回配信からの経過期間ごと  (${((Date.now()-t)/1000).toFixed(1)}s)`);
-console.table(r.rows);
-c.release(); await p.end();
+  FROM win GROUP BY months ORDER BY months`)
+console.log(
+  `\n■ 情報通信：初回配信からの経過期間ごと  (${((Date.now() - t) / 1000).toFixed(1)}s)`,
+)
+console.table(r.rows)
+c.release()
+await p.end()
