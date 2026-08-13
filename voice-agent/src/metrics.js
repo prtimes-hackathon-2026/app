@@ -337,6 +337,19 @@ export async function getLevers(industryId) {
          SELECT 'title_bracket',
                 CASE WHEN rel.title LIKE '%【%' THEN 'on' ELSE 'off' END, rel.pv
            FROM rel
+         UNION ALL
+         SELECT 'location',
+                CASE WHEN lo.release_id IS NULL THEN 'off' ELSE 'on' END, rel.pv
+           FROM rel LEFT JOIN (SELECT DISTINCT company_id, release_id FROM release_location) lo
+             ON lo.company_id = rel.company_id AND lo.release_id = rel.release_id
+         UNION ALL
+         -- カテゴリは「増やす」ことに意味が無い（1件10.9% / 2件10.2%）。
+         -- 効くのは 0→1 だけ（0.4% → 10.9%）なので、有無だけで見る。
+         SELECT 'category',
+                CASE WHEN ca.release_id IS NULL THEN 'off' ELSE 'on' END, rel.pv
+           FROM rel LEFT JOIN (SELECT DISTINCT company_id, release_id
+                                 FROM release_business_category) ca
+             ON ca.company_id = rel.company_id AND ca.release_id = rel.release_id
        )
        SELECT lever, variant, COUNT(*)::int AS n,
               ROUND(AVG(CASE WHEN pv >= (SELECT t FROM thr) THEN 1.0 ELSE 0 END) * 100, 1)::float AS hit_pct
@@ -356,6 +369,51 @@ export async function getLevers(industryId) {
       }
     }
     return out;
+  });
+}
+
+// ─────────────────────────────────────────── 短期の達成率
+
+/**
+ * 初回配信から3か月以内に、どこまで届いたか。
+ * 情報通信での実測（2026-08-14 / 22,028社・平均2.3本）:
+ *   1本でも50PV以上 12.5% / 200PV以上 2.4% / 1000PV以上 0.3%
+ *
+ * 「短期なら広告のほうがいい」を言い切らずに示すための材料。
+ * 数字だけ出して、判断は相手に委ねる。
+ */
+export async function getAchievement(industryId) {
+  if (USING_MOCK) return mock.mockAchievement();
+
+  return cached(`achieve:${industryId}`, async () => {
+    const [row] = await query(
+      `WITH peers AS (SELECT company_id FROM company WHERE industry_id = $1),
+       base AS (
+         SELECT r.company_id, MIN(r.created_at) AS first_at
+           FROM release r JOIN peers p ON p.company_id = r.company_id
+          GROUP BY 1
+       ),
+       w AS (
+         SELECT b.company_id,
+                MAX(COALESCE(s.page_view, 0))::int AS best,
+                COUNT(*)::int AS n
+           FROM base b
+           JOIN release r ON r.company_id = b.company_id
+           LEFT JOIN release_statistic s
+                  ON s.company_id = r.company_id AND s.release_id = r.release_id
+          WHERE r.created_at < b.first_at + INTERVAL '3 months'
+            AND b.first_at + INTERVAL '3 months' <= NOW()
+          GROUP BY 1
+       )
+       SELECT COUNT(*)::int AS companies,
+              ROUND(AVG(n), 1)::float AS avg_releases,
+              ROUND(AVG(CASE WHEN best >=   50 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_50,
+              ROUND(AVG(CASE WHEN best >=  200 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_200,
+              ROUND(AVG(CASE WHEN best >= 1000 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_1000
+         FROM w`,
+      [industryId],
+    );
+    return row || null;
   });
 }
 

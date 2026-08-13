@@ -110,12 +110,18 @@ export function mockResume() {
   };
 }
 
+export function mockAchievement() {
+  return { companies: 22028, avg_releases: 2.3, pct_50: 12.5, pct_200: 2.4, pct_1000: 0.3 };
+}
+
 export function mockLevers() {
   return {
     main_image:   { on: { n: 733704, hit_pct: 10.3 }, off: { n: 22896, hit_pct: 4.4 }, ratio: 2.3, n: 756600 },
     keyword:      { on: { n: 695067, hit_pct: 10.5 }, off: { n: 61533, hit_pct: 6.7 }, ratio: 1.6, n: 756600 },
     title_number: { on: { n: 399920, hit_pct: 11.3 }, off: { n: 356680, hit_pct: 8.9 }, ratio: 1.3, n: 756600 },
     title_bracket:{ on: { n: 118738, hit_pct: 11.8 }, off: { n: 637862, hit_pct: 9.9 }, ratio: 1.2, n: 756600 },
+    location:     { on: { n: 125699, hit_pct: 13.9 }, off: { n: 630901, hit_pct: 9.4 }, ratio: 1.5, n: 756600 },
+    category:     { on: { n: 740459, hit_pct: 10.3 }, off: { n:  16141, hit_pct: 0.4 }, ratio: 25.8, n: 756600 },
   };
 }
 
