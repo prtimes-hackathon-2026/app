@@ -137,7 +137,9 @@ const eslintConfig = [
       '.next/**',
       'node_modules/**',
       'next-env.d.ts',
+      // drizzle-kit の生成物。手で直すものではないので対象外にする
       'drizzle/**/migrations/**',
+      'drizzle/stats/**',
       // 別アーキテクチャの試作。この設定 (Next.js 前提) の対象外にする
       'voice-agent/**',
     ],

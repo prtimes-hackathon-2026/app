@@ -33,5 +33,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "voice-agent"]
+  "exclude": ["node_modules", ".next", "voice-agent", "drizzle/stats"]
 }
