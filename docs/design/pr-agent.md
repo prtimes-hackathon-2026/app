@@ -98,7 +98,7 @@ Notion 側が古い検討過程なのか、別機能として残すのかは未�
 ```
 src/
 ├── app/
-│   ├── pr-agent/page.tsx                          画面
+│   ├── (dashboard)/pr-compass/                    画面（メモパネル + チャット）
 │   └── api/pr-agent/
 │       ├── conversations/route.ts                 POST ターン0
 │       └── conversations/[id]/answers/route.ts    POST ターン1〜2

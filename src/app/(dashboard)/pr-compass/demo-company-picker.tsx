@@ -8,7 +8,7 @@ import { Button, Card, CardBody, CardHeader, Stack } from '@/shared/ui'
 
 import { Alert } from './alert'
 import { blank, formatDate, formatNumber } from './format'
-import styles from './pr-agent.module.css'
+import styles from './blocks.module.css'
 
 /**
  * デモ用の企業選択。
@@ -58,7 +58,7 @@ export function DemoCompanyPicker({
 
       // 会話 ID を URL に持たせる。以降の描画はサーバが会話を読み直して行う
       router.push(
-        `/pr-agent?conversation=${encodeURIComponent(conversationId)}`,
+        `/pr-compass?conversation=${encodeURIComponent(conversationId)}`,
       )
     })
   }

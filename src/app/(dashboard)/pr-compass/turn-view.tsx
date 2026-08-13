@@ -13,7 +13,7 @@ import {
 } from '@/shared/ui'
 
 import { blank, formatDate, formatNumber, formatPercent } from './format'
-import styles from './pr-agent.module.css'
+import styles from './blocks.module.css'
 
 /**
  * 1 ターンの提示物の描画。
@@ -24,6 +24,9 @@ import styles from './pr-agent.module.css'
  *
  * 見た目は `@/shared/ui` の部品に寄せ、CSS Module に残すのは
  * 部品では表せないもの (データ表・自社の行の強調など) だけにしている。
+ *
+ * ターン 1 つがそのまま AI の吹き出し 1 つになる。下地は吹き出し側が持つので、
+ * ここでは下地を重ねない。
  */
 
 type BlockOf<K extends Block['kind']> = Extract<Block, { kind: K }>
@@ -70,48 +73,46 @@ export function TurnView({
     return block.kind === 'hit_curve' || block.kind === 'period'
   })
 
+  // 吹き出し側が article なので、ここは中身を積むだけにする
   return (
-    <article>
-      <Stack gap={4}>
-        <Narrative narrative={turn.narrative} />
-        {turn.blocks.map((block, index) => {
-          if (block.kind === 'hit_curve' || block.kind === 'period') {
-            return index === pairAt ? (
-              <CurvePair
-                key="curves"
-                hitCurve={hitCurve}
-                period={period}
-                borrowed={ownHitCurve === undefined}
-              />
-            ) : null
-          }
-          return <BlockView key={`${block.kind}-${index}`} block={block} />
-        })}
-      </Stack>
-    </article>
+    <Stack gap={4}>
+      <Narrative narrative={turn.narrative} />
+      {turn.blocks.map((block, index) => {
+        if (block.kind === 'hit_curve' || block.kind === 'period') {
+          return index === pairAt ? (
+            <CurvePair
+              key="curves"
+              hitCurve={hitCurve}
+              period={period}
+              borrowed={ownHitCurve === undefined}
+            />
+          ) : null
+        }
+        return <BlockView key={`${block.kind}-${index}`} block={block} />
+      })}
+    </Stack>
   )
 }
 
-/** エージェントの発話。数値を持たないので、下地の色だけで提示物と区別する */
+/**
+ * エージェントの発話。吹き出しの地の文そのものなので、カードで囲わずに置く。
+ * 提示物 (blocks) はこの下にカードとして続き、文章と数字が見た目で分かれる。
+ */
 function Narrative({ narrative }: { narrative: Turn['narrative'] }) {
   // narrative のキーと block の kind の対応は契約に無いので、並べ替えずにそのまま出す
   const paragraphs = Object.entries(narrative.text)
   if (paragraphs.length === 0) return null
 
   return (
-    <Card>
-      <CardBody standalone>
-        <Stack gap={3}>
-          {paragraphs.map(([key, text]) => (
-            <p key={key}>{text}</p>
-          ))}
-          {narrative.source === 'template' ? (
-            // LLM が使えずテンプレのまま出ている状態。利用者向けの情報ではないので控えめに
-            <p className={styles.devNote}>文章は言い換え前のテンプレートです</p>
-          ) : null}
-        </Stack>
-      </CardBody>
-    </Card>
+    <Stack gap={3}>
+      {paragraphs.map(([key, text]) => (
+        <p key={key}>{text}</p>
+      ))}
+      {narrative.source === 'template' ? (
+        // LLM が使えずテンプレのまま出ている状態。利用者向けの情報ではないので控えめに
+        <p className={styles.devNote}>文章は言い換え前のテンプレートです</p>
+      ) : null}
+    </Stack>
   )
 }
 

@@ -1,258 +1,190 @@
-'use client'
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Icon } from '@/shared/ui'
+import {
+  prAgentFeature,
+  type Question,
+  type Turn,
+  type TurnNumber,
+  type UserAnswer,
+} from '@/feature/pr-agent'
+import { prMetricsFeature } from '@/feature/pr-metrics'
+import { LinkButton } from '@/shared/ui'
+
+import { Alert } from './alert'
+import { AgentBubble, answerLabel, UserBubble } from './bubble'
+import { ChatPanel } from './chat-panel'
+import { DemoCompanyPicker } from './demo-company-picker'
+import { buildMemo, type MemoItem } from './memo'
+import { MemoPanel } from './memo-panel'
 import styles from './page.module.css'
+import { findHitCurve, type HitCurveBlock } from './turn-view'
 
-type Message = {
-  role: 'user' | 'assistant'
-  content: string
+/**
+ * PR 羅針盤 — 配信が止まっている企業の「次の 1 本」を、データを見ながら決める画面。
+ *
+ * 左が聞き取りメモ、右がチャットの 2 ペイン。どちらもサーバが会話を読み直して描く。
+ * 会話 ID が URL に無ければデモ用の企業選択、あればその会話を最初から表示する。
+ * `searchParams` は request 時にしか決まらないので、これを読んだ時点で
+ * 動的レンダリングになる。`dynamic = 'force-dynamic'` は書かない
+ * (このバージョンでは旧モデル扱いで、将来 cacheComponents を入れると外す対象になる)。
+ *
+ * ヘッダー・サイドバーは (dashboard) の共通レイアウトが持つので、ここは中身だけ書く。
+ * 画面が触れるのは feature の公開 API だけ。DB も LLM もここからは見えない。
+ */
+
+export const metadata: Metadata = {
+  title: 'PR羅針盤',
 }
 
-type Phase = 'discovery' | 'free_talk' | 'proposal' | 'complete'
+/** 会話の履歴を、そのまま上から描ける形に均したもの */
+type Entry =
+  | {
+      readonly key: number
+      readonly kind: 'turn'
+      readonly turn: Turn
+      readonly hitCurveFallback: HitCurveBlock | undefined
+    }
+  | { readonly key: number; readonly kind: 'answer'; readonly label: string }
 
-const PHASE_LABELS: Record<Phase, string> = {
-  discovery: '聞き取り中',
-  free_talk: '追加確認',
-  proposal: '提案中',
-  complete: '完了',
-}
+export default async function Page(props: PageProps<'/pr-compass'>) {
+  const searchParams = await props.searchParams
+  const raw = searchParams.conversation
+  const conversationId = Array.isArray(raw) ? raw[0] : raw
 
-function TypingDots() {
-  return (
-    <div className={styles.typing}>
-      <span className={styles.typingDot} />
-      <span className={styles.typingDot} />
-      <span className={styles.typingDot} />
-    </div>
-  )
-}
-
-/** 左パネル：聞き取りメモ */
-function MemoPanel({
-  memo,
-  phase,
-  loading,
-}: {
-  memo: string
-  phase: Phase
-  loading: boolean
-}) {
-  const badgeClass =
-    phase === 'discovery'
-      ? styles.phaseBadgeDiscovery
-      : phase === 'free_talk'
-        ? styles.phaseBadgeFreeTalk
-        : styles.phaseBadgeProposal
-
-  return (
-    <aside className={styles.sidebar}>
-      <div className={styles.memoHeader}>
-        <Icon name="form" size={14} />
-        <span className={styles.memoHeaderLabel}>聞き取りメモ</span>
-
-        {phase !== 'complete' && (
-          <span className={`${styles.phaseBadge} ${badgeClass}`}>
-            {PHASE_LABELS[phase]}
-          </span>
-        )}
-      </div>
-
-      {memo ? (
-        <p
-          className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}
-        >
-          {memo}
-        </p>
-      ) : (
-        <div className={styles.memoEmpty}>
-          <div className={styles.memoEmptyIcon}>
-            <Icon name="form" size={16} />
-          </div>
-          <span>
-            会話が進むにつれて、
-            <br />
-            ここに内容が記録されていきます。
-          </span>
+  if (conversationId === undefined || conversationId === '') {
+    const companies = await prMetricsFeature.findStoppedCompanies()
+    return (
+      <TwoPane
+        memo={buildMemo(null)}
+        turn={0}
+        completed={false}
+        started={false}
+      >
+        <div className={styles.messages}>
+          <DemoCompanyPicker companies={companies} />
         </div>
-      )}
-    </aside>
+      </TwoPane>
+    )
+  }
+
+  const found = await prAgentFeature.get(conversationId)
+  if (found === null) {
+    return (
+      <TwoPane
+        memo={buildMemo(null)}
+        turn={0}
+        completed={false}
+        started={false}
+      >
+        <div className={styles.messages}>
+          <Alert message="この会話は見つかりませんでした。" />
+          <div>
+            <LinkButton href="/pr-compass" variant="accent">
+              最初からやり直す
+            </LinkButton>
+          </div>
+        </div>
+      </TwoPane>
+    )
+  }
+
+  const { conversation, turns } = found
+
+  const entries: Entry[] = []
+  // 選択肢のラベルは質問側にしか無いので、通りがけに拾っておく
+  const questions = new Map<string, Question>()
+  // 当たり率カーブはターン 0、期間カーブはターン 1 に出る。並べて見せるために持ち回す
+  let hitCurveFallback: HitCurveBlock | undefined
+  let lastTurn: Turn | null = null
+
+  for (const entry of turns) {
+    if (isTurn(entry.payload)) {
+      const turn = entry.payload
+      entries.push({
+        key: entry.position,
+        kind: 'turn',
+        turn,
+        hitCurveFallback,
+      })
+      hitCurveFallback = findHitCurve(turn) ?? hitCurveFallback
+      if (turn.question !== null) questions.set(turn.question.id, turn.question)
+      lastTurn = turn
+    } else {
+      entries.push({
+        key: entry.position,
+        kind: 'answer',
+        label: answerLabel(
+          entry.payload,
+          questions.get(entry.payload.questionId),
+        ),
+      })
+    }
+  }
+
+  // 終了した会話では質問を出さない。終端 (ターン 2) は question が null になる
+  const question =
+    conversation.status === 'in_progress' ? (lastTurn?.question ?? null) : null
+
+  return (
+    <TwoPane
+      memo={buildMemo(found)}
+      turn={conversation.turn}
+      completed={conversation.status === 'completed'}
+      started
+    >
+      <ChatPanel
+        conversationId={conversation.id}
+        question={question}
+        completed={conversation.status === 'completed'}
+      >
+        {entries.map((entry) =>
+          entry.kind === 'turn' ? (
+            <AgentBubble
+              key={entry.key}
+              turn={entry.turn}
+              hitCurveFallback={entry.hitCurveFallback}
+            />
+          ) : (
+            <UserBubble key={entry.key} label={entry.label} />
+          ),
+        )}
+      </ChatPanel>
+    </TwoPane>
   )
 }
 
-export default function PrCompassPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [phase, setPhase] = useState<Phase>('discovery')
-  const [memo, setMemo] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const isComplete = phase === 'complete'
-
-  // 初回AIメッセージを取得
-  useEffect(() => {
-    fetch('/api/pr-compass/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [] }),
-    })
-      .then((r) => r.json())
-      .then(({ content, phase: p, memo: m }) => {
-        setMessages([{ role: 'assistant', content }])
-        if (p) setPhase(p as Phase)
-        if (m) setMemo(m)
-      })
-      .catch(() => {
-        setMessages([
-          {
-            role: 'assistant',
-            content:
-              '申し訳ありません。接続に問題が発生しました。しばらく経ってから再度お試しください。',
-          },
-        ])
-      })
-      .finally(() => setLoading(false))
-  }, [])
-
-  // 最下部へスクロール
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
-
-  // テキストエリアの高さ自動調整
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value)
-    const el = e.target
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`
-  }
-
-  const send = useCallback(async () => {
-    const text = input.trim()
-    if (!text || loading || isComplete) return
-
-    const newMessages: Message[] = [
-      ...messages,
-      { role: 'user', content: text },
-    ]
-    setMessages(newMessages)
-    setInput('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/pr-compass/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
-      })
-      const { content, phase: p, memo: m } = await res.json()
-
-      setMessages([...newMessages, { role: 'assistant', content }])
-      if (p) setPhase(p as Phase)
-      if (m) setMemo(m)
-    } catch {
-      setMessages([
-        ...newMessages,
-        {
-          role: 'assistant',
-          content: 'エラーが発生しました。もう一度送信してください。',
-        },
-      ])
-    } finally {
-      setLoading(false)
-    }
-  }, [input, loading, isComplete, messages])
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      send()
-    }
-  }
-
+/** 左のメモと右のチャットという骨格。会話の有無にかかわらず同じ形で出す */
+function TwoPane({
+  memo,
+  turn,
+  completed,
+  started,
+  children,
+}: {
+  memo: readonly MemoItem[]
+  turn: TurnNumber
+  completed: boolean
+  started: boolean
+  children: ReactNode
+}) {
   return (
     <div className={styles.page}>
-      {/* ── 左パネル ─────────────────── */}
-      <MemoPanel memo={memo} phase={phase} loading={loading} />
-
-      {/* ── 右パネル：チャット ──────── */}
-      <section className={styles.chat}>
-        <div className={styles.messages}>
-          {messages.map((m, i) => (
-            <div
-              key={i}
-              className={`${styles.bubble} ${
-                m.role === 'assistant' ? styles.bubbleAi : styles.bubbleUser
-              }`}
-            >
-              <p className={styles.bubbleLabel}>
-                {m.role === 'assistant' ? 'PR TIMES 広報伴走AI' : 'あなた'}
-              </p>
-              <div className={styles.bubbleInner}>{m.content}</div>
-            </div>
-          ))}
-
-          {loading && <TypingDots />}
-
-          {isComplete && (
-            <div className={styles.completeBanner}>
-              <Icon name="send" size={18} />
-              <p className={styles.completeBannerText}>
-                広報の方針が固まりました。プレスリリース作成に進みましょう。
-              </p>
-              <Link
-                href="/press-releases/new"
-                style={{
-                  fontSize: 'var(--fs-sm)',
-                  fontWeight: 'var(--fw-bold)',
-                  color: 'var(--c-primary)',
-                  textDecoration: 'none',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                作成する →
-              </Link>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-
-        {!isComplete && (
-          <div className={styles.inputArea}>
-            <div className={styles.inputRow}>
-              <textarea
-                ref={textareaRef}
-                className={styles.textarea}
-                placeholder={
-                  phase === 'free_talk'
-                    ? '他に伝えておきたいことがあれば… （なければ「大丈夫です」でも）'
-                    : '返信を入力… （Shift+Enter で改行）'
-                }
-                rows={1}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                disabled={loading}
-              />
-              <button
-                type="button"
-                className={styles.sendBtn}
-                onClick={send}
-                disabled={loading || !input.trim()}
-                aria-label="送信"
-              >
-                <Icon name="send" size={18} />
-              </button>
-            </div>
-            <p className={styles.hintText}>Enter で送信 / Shift+Enter で改行</p>
-          </div>
-        )}
-      </section>
+      <MemoPanel
+        items={memo}
+        turn={turn}
+        completed={completed}
+        started={started}
+      />
+      <section className={styles.chat}>{children}</section>
     </div>
   )
+}
+
+/**
+ * 履歴の payload は `Turn | UserAnswer`。
+ * `blocks` を持つのはエージェントのターンだけなので、そこで見分ける。
+ */
+function isTurn(payload: Turn | UserAnswer): payload is Turn {
+  return 'blocks' in payload
 }

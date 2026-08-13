@@ -1,9 +1,11 @@
 /*
- * 広報伴走エージェント画面のうち、`@/shared/ui` の部品で表せないところだけを持つ。
+ * 提示物 (block) の描画のうち、`@/shared/ui` の部品で表せないところだけを持つ。
  *
  * 主役は当たり率カーブの表で、桁が揃うこと (tabular-nums) と自社の行が一目で分かることが
  * この画面の主張そのものになっている。デザインシステムにデータ表の部品が無いのでここに残す。
  * 色・余白・角丸・文字は tokens.css の変数だけを使い、生の値は書かない。
+ *
+ * 会話の骨組み (吹き出し・メモ・入力欄) は page.module.css が持つ。
  */
 
 /* 本数別と期間別は対でしか意味を持たないので、必ず横に並べる (狭ければ縦積み) */
@@ -157,92 +159,4 @@
 .action {
   font-size: var(--fs-xl);
   font-weight: var(--fw-bold);
-}
-
-/* ---- 回答・質問 ---- */
-
-/* 利用者の回答。デザインシステムに会話の吹き出しが無いので、地色と縦線だけの最小限にする */
-.answer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-3);
-  align-items: baseline;
-  padding: var(--s-3) var(--s-4);
-  background: var(--c-surface-muted);
-  border-left: 3px solid var(--c-border-strong);
-  border-radius: var(--r-md);
-}
-
-.answerRole {
-  display: inline-flex;
-  gap: var(--s-1);
-  align-items: center;
-  color: var(--c-text-muted);
-  font-size: var(--fs-xs);
-}
-
-.answerState {
-  color: var(--c-text-muted);
-  font-size: var(--fs-xs);
-}
-
-.pending {
-  opacity: 0.6;
-}
-
-/*
- * 送信の失敗などの通知。デザインシステムに状態色 (danger) が無いため、
- * 色ではなく枠線の強さと太字で他と区別している。
- */
-.alert {
-  display: flex;
-  gap: var(--s-2);
-  align-items: center;
-  padding: var(--s-3) var(--s-4);
-  font-weight: var(--fw-bold);
-  background: var(--c-surface-muted);
-  border: 1px solid var(--c-border-strong);
-  border-radius: var(--r-md);
-}
-
-.questionText {
-  font-weight: var(--fw-bold);
-}
-
-.choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-}
-
-.freeText {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  align-items: center;
-}
-
-.freeTextLabel {
-  color: var(--c-text-muted);
-  font-size: var(--fs-sm);
-}
-
-/* デザインシステムに入力欄の部品が無いので、Button の高さ・角丸に合わせてここで作る */
-.input {
-  flex: 1 1 16rem;
-  padding: var(--s-3) var(--s-4);
-  font-size: var(--fs-md);
-  background: var(--c-surface);
-  border: 1px solid var(--c-border-strong);
-  border-radius: var(--r-md);
-}
-
-.input:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.terminal {
-  color: var(--c-text-muted);
-  font-size: var(--fs-sm);
 }
