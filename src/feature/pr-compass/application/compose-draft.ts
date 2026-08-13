@@ -7,6 +7,10 @@ import {
   type Reason,
 } from '../domain/conversation'
 import type { Block } from '../domain/block'
+import {
+  articlesForInterest,
+  articlesForReason,
+} from '../infrastructure/magazine'
 import { bucketOf, type Insight } from '../domain/insight'
 
 /**
@@ -237,6 +241,15 @@ export function composeReason(insight: Insight, reason: Reason): Draft {
     })
   }
 
+  const reads = articlesForReason(reason, d.industryName)
+  if (reads.length) {
+    blocks.push({
+      type: 'articles',
+      title: 'この状況で参考になる記事',
+      items: reads,
+    })
+  }
+
   return {
     draft: lines.join('\n\n'),
     facts,
@@ -337,6 +350,15 @@ export function composeProposal(insight: Insight, interest: Interest): Draft {
         jp(t.n),
       ]),
       note: '中央値ではほとんど差がつかない。跳ねたときの水準で見る',
+    })
+  }
+
+  const reads = articlesForInterest(interest, d.industryName)
+  if (reads.length) {
+    blocks.push({
+      type: 'articles',
+      title: '書き方と配信事例',
+      items: reads,
     })
   }
 

@@ -31,6 +31,11 @@ type Block =
     }
   | { type: 'goal'; headline: string; detail: string }
   | {
+      type: 'articles'
+      title: string
+      items: { title: string; url: string; why: string }[]
+    }
+  | {
       type: 'checklist'
       title: string
       items: { label: string; withPct?: number; withoutPct?: number }[]
@@ -117,6 +122,28 @@ function Blocks({ blocks }: { blocks?: Block[] }) {
                 </div>
               </div>
               {b.note && <p className={styles.cardNote}>{b.note}</p>}
+            </div>
+          )
+
+        if (b.type === 'articles')
+          return (
+            <div key={i} className={styles.card}>
+              <div className={styles.cardTitle}>{b.title}</div>
+              <ul className={styles.articles}>
+                {b.items.map((a) => (
+                  <li key={a.url}>
+                    <a
+                      href={a.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.articleLink}
+                    >
+                      {a.title}
+                    </a>
+                    <span className={styles.articleWhy}>{a.why}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )
 

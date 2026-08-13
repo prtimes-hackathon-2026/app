@@ -56,5 +56,18 @@ export type ChecklistBlock = {
   note?: string
 }
 
+/** 参考になる記事。なぜ出したかを添えられないものは出さない */
+export type ArticlesBlock = {
+  type: 'articles'
+  title: string
+  items: readonly { title: string; url: string; why: string }[]
+}
+
 export type Block =
-  StatBlock | BarsBlock | CompareBlock | TableBlock | GoalBlock | ChecklistBlock
+  | StatBlock
+  | BarsBlock
+  | CompareBlock
+  | TableBlock
+  | GoalBlock
+  | ChecklistBlock
+  | ArticlesBlock
