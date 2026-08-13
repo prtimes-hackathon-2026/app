@@ -159,7 +159,8 @@ type SysBlock = {
 /** AIの出力から <<<SYS>>>...<<<END>>> ブロックを抽出してパースする */
 function parseSysBlock(raw: string): { content: string; sys: SysBlock | null } {
   const sysMatch = raw.match(/<<<SYS>>>([\s\S]*?)<<<END>>>/)
-  if (!sysMatch || sysMatch[1] === undefined) return { content: raw.trim(), sys: null }
+  if (!sysMatch || sysMatch[1] === undefined)
+    return { content: raw.trim(), sys: null }
 
   const matchedGroup: string = sysMatch[1]
   const content = raw.replace(/<<<SYS>>>[\s\S]*?<<<END>>>/, '').trim()

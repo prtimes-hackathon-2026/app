@@ -60,7 +60,9 @@ function MemoPanel({
       </div>
 
       {memo ? (
-        <p className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}>
+        <p
+          className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}
+        >
           {memo}
         </p>
       ) : (
