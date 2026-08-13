@@ -1,0 +1,87 @@
+.grid {
+  display: grid;
+  gap: var(--s-4);
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+/* スキーマ定義 1 か所分の枠 */
+.group {
+  overflow: hidden;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+}
+
+.groupHeader {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  color: var(--c-text-muted);
+  background: var(--c-surface-muted);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.groupName {
+  flex: none;
+  font-size: var(--fs-md);
+  color: var(--c-text);
+  white-space: nowrap;
+}
+
+/* 3 列に並ぶと狭いので、はみ出す注記の方を削る */
+.groupNote {
+  overflow: hidden;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-2) var(--s-4);
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.files .file:last-child {
+  border-bottom: none;
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+/* 色と下線は base.css の <a> の既定に任せる */
+.download {
+  display: inline-flex;
+  flex: none;
+  gap: var(--s-1);
+  align-items: center;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.message {
+  padding: var(--s-4);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.caption {
+  margin-top: var(--s-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

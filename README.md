@@ -17,12 +17,14 @@ src/
 │   │   ├── infrastructure/  ポートの実装 (Drizzle アダプタ)
 │   │   └── index.ts         この feature の合成ルート兼公開 API
 │   ├── settings/
-│   └── stats/               統計 DB からの読み取り
+│   ├── stats/               統計 DB からの読み取り
+│   └── schema-files/        同梱した Drizzle のスキーマ定義の配布
 ├── external/                外部システムへの接続。ドメインを知らない
-│   └── db/
-│       ├── connection.ts    postgres.js の接続プール生成 (共通)
-│       ├── app/             このアプリが所有する DB (AWS RDS)
-│       └── stats/           統計情報用の外部 PostgreSQL (参照専用)
+│   ├── db/
+│   │   ├── connection.ts    postgres.js の接続プール生成 (共通)
+│   │   ├── app/             このアプリが所有する DB (AWS RDS)
+│   │   └── stats/           統計情報用の外部 PostgreSQL (参照専用)
+│   └── source-file/         リポジトリ同梱ファイルの読み出し
 └── shared/                  横断的な部品。他レイヤーに依存しない
     ├── env.ts               環境変数の検証 (zod)
     ├── app-config.ts        画面に流し込む値 (ロゴ・メニュー・窓口・アカウント)
@@ -88,6 +90,16 @@ src/shared/ui/
 `/dashboard` へ送る (307)。DB の疎通確認は `/` の専用ページではなく、
 ダッシュボードの「データベースのテーブル一覧」カードで見る。
 
+その下の「Drizzle のスキーマファイル」カードから、同梱しているスキーマ定義を
+そのままダウンロードできる。実体を返すのは `/api/schema-files/<リポジトリ相対パス>` で、
+返すのは `src/feature/schema-files` が持つ一覧に載っているものだけ。URL のパスを
+ファイルに直接解決しないので、置いた覚えのないものが降りてくることはない。
+
+配るファイルは import されず中身を読むだけなので、Next.js のトレースには自動では
+乗らない。`next.config.ts` の `outputFileTracingIncludes` に列挙して standalone 出力へ
+持ち込んでいる。ディレクトリを増やすときは `schema-file-repository.fs.ts` と対で直すこと
+(片方だけ直すと、手元では出るのに本番だけ空になる)。
+
 ## ORM: Drizzle ORM
 
 2 つの DB を扱う要件から Drizzle を選定した。
@@ -116,6 +128,29 @@ src/shared/ui/
 環境変数は `src/shared/env.ts` で zod により検証する。検証は初回アクセス時の遅延評価なので、
 DB が無い環境 (CI の `next build` など) でもビルドは通る。
 
+### 統計 DB のスキーマを取り込む
+
+統計 DB はこのアプリの管理外なので、スキーマの正は向こう側にある。実体が変わったら
+introspect で引き直す。
+
+```bash
+docker compose up -d stats-db          # ローカル代役を使う場合
+pnpm db:stats:pull
+```
+
+引いた結果は `drizzle/stats/` に出る。**アプリが読むのはここではない**ので、
+`drizzle/stats/schema.ts` の内容を `src/external/db/stats/schema/` へ写して初めて反映される
+(`drizzle/stats.config.ts` の `schema` 欄は generate / migrate 用で、pull では使われない)。
+この設定に `generate` / `migrate` / `push` を打ってはいけない。
+
+**pull は `stats_reader` で行わないこと。** PostgreSQL の `information_schema` は
+「SELECT 以外の権限を持つテーブル」の制約しか見せないため、参照専用ロールで introspect すると
+主キー・一意制約・外部キーが黙って落ちる (テーブルとカラムだけが引けて成功したように見える)。
+`.env` の `STATS_DATABASE_URL` を一時的に所有者ロールへ向けてから引く。
+
+ローカル代役のスキーマ (`docker/stats-db/init.sql`) を変えたときは、init スクリプトが
+初回起動時にしか走らないので `docker volume rm app_stats-db-data` で作り直す。
+
 ## セットアップ
 
 ```bash
@@ -126,15 +161,15 @@ pnpm dev
 
 ## コマンド
 
-| コマンド                                 | 内容                                                |
-| ---------------------------------------- | --------------------------------------------------- |
-| `pnpm dev` / `pnpm build` / `pnpm start` | Next.js                                             |
-| `pnpm check`                             | lint → format:check → typecheck → build (CI と同じ) |
-| `pnpm db:app:generate`                   | アプリ DB のマイグレーション SQL を生成             |
-| `pnpm db:app:migrate`                    | アプリ DB にマイグレーションを適用                  |
-| `pnpm db:app:check`                      | マイグレーションが base ブランチと矛盾しないか確認  |
-| `pnpm db:app:studio`                     | Drizzle Studio                                      |
-| `pnpm db:stats:pull`                     | 統計 DB を introspect してスキーマを引き直す        |
+| コマンド                                 | 内容                                                   |
+| ---------------------------------------- | ------------------------------------------------------ |
+| `pnpm dev` / `pnpm build` / `pnpm start` | Next.js                                                |
+| `pnpm check`                             | lint → format:check → typecheck → build (CI と同じ)    |
+| `pnpm db:app:generate`                   | アプリ DB のマイグレーション SQL を生成                |
+| `pnpm db:app:migrate`                    | アプリ DB にマイグレーションを適用                     |
+| `pnpm db:app:check`                      | マイグレーションが base ブランチと矛盾しないか確認     |
+| `pnpm db:app:studio`                     | Drizzle Studio                                         |
+| `pnpm db:stats:pull`                     | 統計 DB を introspect して `drizzle/stats/` に引き直す |
 
 ## マイグレーション
 

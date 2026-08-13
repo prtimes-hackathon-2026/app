@@ -129,6 +129,13 @@ const icons = {
       <line x1="10" y1="14" x2="21" y2="3" />
     </>
   ),
+  download: (
+    <>
+      <path d="M3 15v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
+      <polyline points="7.5 11 12 15.5 16.5 11" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </>
+  ),
 } as const
 
 export type IconName = keyof typeof icons

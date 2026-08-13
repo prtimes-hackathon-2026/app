@@ -15,6 +15,7 @@ import {
   DatabaseTablesCardFallback,
 } from './database-tables-card'
 import { PrCompassBanner } from './pr-compass-banner'
+import { SchemaFilesCard } from './schema-files-card'
 
 export const metadata: Metadata = {
   title: 'ダッシュボード',
@@ -144,6 +145,9 @@ export default function DashboardPage() {
         <Suspense fallback={<DatabaseTablesCardFallback />}>
           <DatabaseTablesCard />
         </Suspense>
+
+        {/* 同梱のスキーマ定義。読むのはローカルのファイルだけなので Suspense は挟まない */}
+        <SchemaFilesCard />
       </Stack>
     </>
   )
