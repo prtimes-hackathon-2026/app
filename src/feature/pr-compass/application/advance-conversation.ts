@@ -10,6 +10,7 @@ import {
 import type { Insight } from '../domain/insight'
 import type { InsightRepository } from '../domain/insight-repository'
 import type { Classifier, Narrator } from '../domain/language'
+import { toScript } from '../infrastructure/voice.openai'
 
 import {
   composeAlternative,
@@ -38,6 +39,11 @@ export type AdvanceResult = {
   memo: string
   /** 入力の助けとして画面に出す。選ばせるためではないので、押しても送信はしない */
   suggestions: readonly string[]
+  /**
+   * 読み上げ用の台本。本文をそのまま読ませると1分の独白になるので、
+   * 頭の2文だけを耳向けに整形したもの。詳細は画面で読んでもらう。
+   */
+  speech: string
 }
 
 /**
@@ -110,6 +116,7 @@ export function advanceConversation(deps: {
         phase: 'discovery',
         memo,
         suggestions: [],
+        speech: '',
       }
     }
 
@@ -145,6 +152,7 @@ export function advanceConversation(deps: {
     return {
       content: spoken,
       suggestions: suggestions ?? [],
+      speech: toScript(spoken),
       // 書きに行くか、人に渡すかが決まったときだけ閉じる。
       // 断られただけで閉じてしまうと、粘る前に入力欄が消える
       phase: state.finished ? 'complete' : phaseOf(step),

@@ -88,8 +88,15 @@ export default function PrCompassPage() {
   const [phase, setPhase] = useState<Phase>('discovery')
   const [memo, setMemo] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
+  // 音声。読み上げは任意機能で、失敗しても会話は続く
+  const [autoSpeak, setAutoSpeak] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const recorderRef = useRef<MediaRecorder | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [speech, setSpeech] = useState('')
 
   const isComplete = phase === 'complete'
 
@@ -101,11 +108,12 @@ export default function PrCompassPage() {
       body: JSON.stringify({ messages: [] }),
     })
       .then((r) => r.json())
-      .then(({ content, phase: p, memo: m, suggestions: s }) => {
+      .then(({ content, phase: p, memo: m, suggestions: s, speech: sp }) => {
         setMessages([{ role: 'assistant', content }])
         if (p) setPhase(p as Phase)
         if (m) setMemo(m)
         setSuggestions(Array.isArray(s) ? s : [])
+        setSpeech(sp ?? '')
       })
       .catch(() => {
         setMessages([
@@ -181,6 +189,65 @@ export default function PrCompassPage() {
     }
   }
 
+  /** 台本を読み上げる。音が出せなくても会話は止めない */
+  const play = useCallback(async (text: string) => {
+    if (!text) return
+    try {
+      setSpeaking(true)
+      const res = await fetch('/api/pr-compass/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (res.status === 204) return // 音声が無効。画面はそのまま進む
+      const url = URL.createObjectURL(await res.blob())
+      audioRef.current?.pause()
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => {
+        setSpeaking(false)
+        URL.revokeObjectURL(url)
+      }
+      await audio.play()
+    } catch {
+      setSpeaking(false)
+    }
+  }, [])
+
+  /** 話して答える。聞き取った文は入力欄に入れる（勝手に送信しない） */
+  const toggleRecording = useCallback(async () => {
+    if (recording) {
+      recorderRef.current?.stop()
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      const chunks: Blob[] = []
+      recorder.ondataavailable = (e) => chunks.push(e.data)
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop())
+        setRecording(false)
+        const blob = new Blob(chunks, { type: recorder.mimeType })
+        const res = await fetch('/api/pr-compass/stt', {
+          method: 'POST',
+          headers: { 'Content-Type': recorder.mimeType },
+          body: blob,
+        })
+        const { text } = await res.json()
+        if (text) {
+          setInput(text)
+          textareaRef.current?.focus()
+        }
+      }
+      recorderRef.current = recorder
+      recorder.start()
+      setRecording(true)
+    } catch {
+      setRecording(false)
+    }
+  }, [recording])
+
   /** サジェストは入力欄に入れるだけ。押しても送信はしない */
   const applySuggestion = (text: string) => {
     setInput(text)
@@ -251,6 +318,31 @@ export default function PrCompassPage() {
                 ))}
               </div>
             )}
+            <div className={styles.voiceBar}>
+              <button
+                type="button"
+                className={styles.voiceBtn}
+                onClick={() => play(speech)}
+                disabled={speaking || !speech}
+              >
+                {speaking ? '🔊 読み上げ中…' : '🔊 いまの内容を読み上げる'}
+              </button>
+              <button
+                type="button"
+                className={`${styles.voiceBtn} ${recording ? styles.voiceBtnActive : ''}`}
+                onClick={toggleRecording}
+              >
+                {recording ? '⏹ 話し終わったら押す' : '🎙 声で答える'}
+              </button>
+              <label className={styles.voiceToggle}>
+                <input
+                  type="checkbox"
+                  checked={autoSpeak}
+                  onChange={(e) => setAutoSpeak(e.target.checked)}
+                />
+                返答を自動で読み上げる
+              </label>
+            </div>
             <div className={styles.inputRow}>
               <textarea
                 ref={textareaRef}

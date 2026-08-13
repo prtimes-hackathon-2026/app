@@ -6,6 +6,7 @@ import {
   openAiNarrator,
 } from './infrastructure/language.openai'
 import { drizzleInsightRepository } from './infrastructure/insight-repository.drizzle'
+import { listen, speak, voiceReady } from './infrastructure/voice.openai'
 
 export type {
   ChatMessage,
@@ -26,4 +27,9 @@ export const prCompassFeature = {
     classifier: openAiClassifier(),
     narrator: openAiNarrator(),
   }),
+  /** 台本を音声にする。作れなければ null を返し、画面は音なしで進む */
+  speak,
+  /** 話した音声を文字にする */
+  listen,
+  voiceReady,
 } as const

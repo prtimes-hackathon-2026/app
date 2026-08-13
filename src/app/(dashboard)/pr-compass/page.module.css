@@ -356,3 +356,48 @@
   outline: 2px solid var(--c-primary);
   outline-offset: 2px;
 }
+
+/* 音声。使い方が分かるようラベルに状態を書く */
+.voiceBar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-3);
+}
+
+.voiceBtn {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: 0.12s;
+}
+
+.voiceBtn:hover:not(:disabled) {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.voiceBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.voiceBtnActive {
+  color: var(--c-on-primary);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.voiceToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
