@@ -18,6 +18,7 @@
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm build",
     "db:app:generate": "drizzle-kit generate --config=drizzle/app.config.ts",
     "db:app:migrate": "drizzle-kit migrate --config=drizzle/app.config.ts",
+    "db:app:check": "node scripts/check-migrations.mjs",
     "db:app:studio": "drizzle-kit studio --config=drizzle/app.config.ts",
     "db:stats:pull": "drizzle-kit pull --config=drizzle/stats.config.ts"
   },

@@ -87,8 +87,49 @@ pnpm dev
 | `pnpm check`                             | lint → format:check → typecheck → build (CI と同じ) |
 | `pnpm db:app:generate`                   | アプリ DB のマイグレーション SQL を生成             |
 | `pnpm db:app:migrate`                    | アプリ DB にマイグレーションを適用                  |
+| `pnpm db:app:check`                      | マイグレーションが base ブランチと矛盾しないか確認  |
 | `pnpm db:app:studio`                     | Drizzle Studio                                      |
 | `pnpm db:stats:pull`                     | 統計 DB を introspect してスキーマを引き直す        |
+
+## マイグレーション
+
+スキーマを変えたら `pnpm db:app:generate` で SQL を生成し、**生成物ごとコミットする**。
+適用は手で流す必要はなく、**サーバーの起動時に自動で流れる**。
+
+### 起動時に流す
+
+`src/instrumentation.ts` の `register()` から `migrateAppDbOnStartup()` を呼んでいる。
+Next.js はサーバーインスタンスごとに 1 度だけ、**リクエストを受け付ける前に**これを実行する。
+失敗すれば例外がそのまま出てサーバーは起動しない (ECS では deployment circuit breaker が
+旧タスクへ切り戻す)。
+
+| 環境                             | 既定     |
+| -------------------------------- | -------- |
+| `NODE_ENV=production` (コンテナ) | 流す     |
+| それ以外 (`pnpm dev` など)       | 流さない |
+
+`APP_DATABASE_MIGRATE_ON_STARTUP=true` / `=false` で明示的に上書きできる。dev で流さないのは、
+DB を用意していない環境でもサーバーが起動できるようにするため (環境変数の遅延検証と同じ理由)。
+手元で試すなら `docker compose up` が `NODE_ENV=production` なのでそのまま流れる。
+
+同時に複数のタスクが起動しても二重に流れないよう、`pg_advisory_lock` で 1 つに絞っている。
+アプリ本体の接続プールとは別に専用の接続を 1 本張るのはそのため (セッション単位のロックは
+取得した接続に紐づく)。SQL とジャーナルは `.next/standalone` に含まれないので、`Dockerfile`
+の `runner` ステージで `drizzle/app/migrations` を明示的にコピーしている。
+
+### 番号の衝突を CI で止める
+
+同じ時期に切った 2 本のブランチがそれぞれ `0001_*` を生成すると、先にマージされた方に
+番号を取られる。そのまま流すと片方が飛ばされたりスナップショットの連鎖が切れたりするため、
+CI の `migrations` ジョブで次を確認している (DB には接続しない)。
+
+- `pnpm db:app:generate` の結果に差分が出ないか (= generate 忘れ)
+- base ブランチのマイグレーションが、このブランチにそのまま残っているか (= 番号の衝突)
+- マージ済みのマイグレーションが書き換えられていないか
+- スナップショットの `prevId` が繋がっているか
+
+衝突したら base を取り込み、生成した SQL とスナップショットを消してから
+`pnpm db:app:generate` をやり直す。手元でも `pnpm db:app:check origin/main` で確認できる。
 
 ## Docker
 
