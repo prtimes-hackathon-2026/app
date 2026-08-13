@@ -20,10 +20,20 @@ const envSchema = z.object({
   APP_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
   APP_DATABASE_MIGRATE_ON_STARTUP: migrateOnStartupSchema.optional(),
 
-  // 統計情報用の外部 PostgreSQL (このアプリの管理外・参照のみ)
+  // PR TIMES のデータベース (このアプリの管理外・参照のみ)
   STATS_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   STATS_DATABASE_SSL: sslModeSchema.default('require'),
   STATS_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
+
+  // OpenAI。LLM は下書きの言い換えにしか使わず、数値も判定もコード側で決まる。
+  // キーが無くてもテンプレの下書きをそのまま出せば会話は成立するので optional に
+  // している。ここで必須にすると、キーを持たない環境でアプリ全体が動かなくなる。
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  // モデルは並べて比較できるように差し替え口だけ開けておく (既定は設計 §11(c))
+  OPENAI_NARRATOR_MODEL: z.string().min(1).default('gpt-5.6-luna'),
+  OPENAI_CLASSIFIER_MODEL: z.string().min(1).default('gpt-5.4-nano'),
+  // 3 層推定は文章化と同じモデルを使う。単体で比較したいときだけ指定する
+  OPENAI_PROFILER_MODEL: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

@@ -10,6 +10,13 @@ export type ConnectionConfig = {
   readonly max: number
   /** 接続先の pg_stat_activity で接続元を判別できるようにする */
   readonly applicationName: string
+  /**
+   * 1 クエリの上限時間 (ミリ秒)。未指定なら接続先の既定に従う。
+   *
+   * 重い集計を投げる接続では必ず設定すること。上限が無いと、詰まったクエリが
+   * プールの接続を握ったまま解放されず、他のリクエストごと巻き込んで止まる。
+   */
+  readonly statementTimeoutMs?: number
 }
 
 /**
@@ -37,7 +44,12 @@ export function createSql(key: string, config: ConnectionConfig): postgres.Sql {
   const sql = postgres(config.url, {
     ssl: toSslOption(config.ssl),
     max: config.max,
-    connection: { application_name: config.applicationName },
+    connection: {
+      application_name: config.applicationName,
+      ...(config.statementTimeoutMs === undefined
+        ? {}
+        : { statement_timeout: config.statementTimeoutMs }),
+    },
     // 接続確立とアイドル接続の上限。RDS 側の接続数を食い潰さないようにする
     connect_timeout: 10,
     idle_timeout: 30,

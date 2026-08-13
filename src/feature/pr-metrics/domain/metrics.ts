@@ -79,10 +79,7 @@ export function resumeSegmentFor(
 
 /** 打ち手の有無による当たり率の差。同一業種内で算出する */
 export type LeverKey =
-  | 'main_image'
-  | 'keyword'
-  | 'title_number'
-  | 'title_bracket'
+  'main_image' | 'keyword' | 'title_number' | 'title_bracket'
 
 export type Lever = {
   readonly on: { readonly n: number; readonly hitPct: number }
