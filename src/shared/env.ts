@@ -22,6 +22,9 @@ const envSchema = z.object({
   STATS_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   STATS_DATABASE_SSL: sslModeSchema.default('require'),
   STATS_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
+
+  // PR羅針盤 AI コーチング機能
+  OPENAI_API_KEY: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

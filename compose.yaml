@@ -17,6 +17,8 @@ services:
       STATS_DATABASE_URL: postgres://stats_reader:stats@stats-db:5432/stats
       STATS_DATABASE_SSL: disable
       STATS_DATABASE_POOL_MAX: '5'
+      # PR羅針盤 AI コーチング機能
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       app-db:
         condition: service_healthy
