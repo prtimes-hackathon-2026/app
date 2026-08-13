@@ -403,94 +403,97 @@
 }
 
 /* ── 数値の表示 ───────────────────────────────
-   本文（言い換えで揺れる）とは分けて、SQL の結果をそのまま描く */
+   本文の補助図。主役は会話なので、控えめに置く。
+   数字を大きく見せるほど押し付けがましくなるため、
+   本文より小さく、色も最小限にとどめる */
 
 .blocks {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--s-2);
   margin-top: var(--s-3);
 }
 
 .card {
-  padding: var(--s-4);
+  padding: var(--s-3);
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
 }
 
 .cardTitle {
-  font-size: var(--fs-xs);
+  font-size: 0.7rem;
   font-weight: var(--fw-bold);
   color: var(--c-text-muted);
-  letter-spacing: 0.04em;
-  margin-bottom: var(--s-3);
+  margin-bottom: var(--s-2);
 }
 
 .cardNote {
-  margin: var(--s-3) 0 0;
-  font-size: var(--fs-xs);
-  line-height: 1.7;
+  margin: var(--s-2) 0 0;
+  font-size: 0.68rem;
+  line-height: 1.6;
   color: var(--c-text-muted);
 }
 
-/* 見出し数値 */
+/* 見出し数値。本文と同じくらいの大きさに留める */
 .statRow {
   display: flex;
-  gap: var(--s-3);
+  gap: var(--s-2);
   flex-wrap: wrap;
 }
 
 .stat {
-  flex: 1;
-  min-width: 7rem;
-  padding: var(--s-3) var(--s-4);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
   background: var(--c-surface-muted);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
 }
 
 .statValue {
-  font-size: var(--fs-xl, 1.4rem);
+  font-size: 0.95rem;
   font-weight: var(--fw-bold);
-  line-height: 1.3;
   font-variant-numeric: tabular-nums;
 }
 
 .statLabel {
-  font-size: var(--fs-xs);
+  font-size: 0.68rem;
   color: var(--c-text-muted);
-  margin-top: var(--s-1);
 }
 
-/* 目標。一番目立たせる */
+/* 目標。塗りつぶさず、左の罫線だけで示す */
 .goal {
-  padding: var(--s-4) var(--s-5);
-  background: var(--c-primary);
-  color: var(--c-on-primary);
-  border-radius: var(--r-lg);
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--c-primary);
+  background: var(--c-surface-muted);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
 }
 
 .goalHeadline {
-  font-size: 1.6rem;
+  font-size: 1rem;
   font-weight: var(--fw-bold);
-  line-height: 1.25;
+  color: var(--c-primary);
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
 .goalDetail {
-  font-size: var(--fs-xs);
-  line-height: 1.7;
-  opacity: 0.92;
-  margin-top: var(--s-1);
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--c-text-muted);
 }
 
 /* 棒グラフ */
 .bars {
   display: flex;
   align-items: flex-end;
-  gap: var(--s-2);
-  height: 8.5rem;
-  padding-top: 1.1rem;
+  gap: 3px;
+  height: 4.2rem;
+  padding-top: 0.85rem;
 }
 
 .barCol {
@@ -505,9 +508,9 @@
 
 .bar {
   width: 100%;
-  min-height: 3px;
-  background: var(--c-surface-muted);
-  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  min-height: 2px;
+  background: var(--c-border);
+  border-radius: 2px 2px 0 0;
 }
 
 .barHi {
@@ -516,15 +519,15 @@
 
 .barValue {
   position: absolute;
-  top: -1.1rem;
-  font-size: 0.68rem;
+  top: -0.85rem;
+  font-size: 0.6rem;
   color: var(--c-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .barLabel {
-  margin-top: var(--s-1);
-  font-size: 0.64rem;
+  margin-top: 3px;
+  font-size: 0.58rem;
   color: var(--c-text-muted);
   white-space: nowrap;
 }
@@ -532,19 +535,19 @@
 /* 前後の比較 */
 .compare {
   display: flex;
-  align-items: center;
-  gap: var(--s-3);
+  align-items: baseline;
+  gap: var(--s-2);
 }
 
 .compareSide {
-  flex: 1;
-  text-align: center;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-1);
 }
 
 .compareValue {
-  font-size: 1.5rem;
+  font-size: 0.95rem;
   font-weight: var(--fw-bold);
-  line-height: 1.2;
   color: var(--c-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -554,14 +557,13 @@
 }
 
 .compareLabel {
-  font-size: var(--fs-xs);
+  font-size: 0.68rem;
   color: var(--c-text-muted);
-  margin-top: var(--s-1);
 }
 
 .compareArrow {
   color: var(--c-text-muted);
-  font-size: var(--fs-sm);
+  font-size: 0.7rem;
 }
 
 /* 表 */
@@ -572,14 +574,14 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--fs-xs);
+  font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
 }
 
 .table th,
 .table td {
   text-align: left;
-  padding: var(--s-2) var(--s-3);
+  padding: var(--s-1) var(--s-2);
   border-bottom: 1px solid var(--c-border);
   white-space: nowrap;
 }
@@ -600,13 +602,14 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: var(--s-1);
 }
 
 .checklist li {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: var(--s-2);
+  flex-wrap: wrap;
   padding-left: var(--s-4);
   position: relative;
 }
@@ -615,15 +618,16 @@
   content: '□';
   position: absolute;
   left: 0;
+  font-size: 0.7rem;
   color: var(--c-text-muted);
 }
 
 .checkLabel {
-  font-size: var(--fs-sm);
+  font-size: 0.78rem;
 }
 
 .checkDiff {
-  font-size: var(--fs-xs);
+  font-size: 0.68rem;
   color: var(--c-text-muted);
   font-variant-numeric: tabular-nums;
 }
