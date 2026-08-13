@@ -190,6 +190,41 @@ curl http://localhost:3000/api/health
 `/api/health` は liveness チェックなので意図的に DB を見ない。DB を含む readiness が必要に
 なったら feature 側にユースケースを足し、`app` からはその公開 API を呼ぶだけにする。
 
+## PR プレビュー
+
+PR を開くと `https://pr-<番号>.preview-prtimes-hackathon-2026.naohanpen.dev` が生えて、
+URL が PR にコメントされる。push のたびに入れ替わり、PR を閉じると消える。
+インフラ側の作りは infra リポジトリの `docs/pr-preview.md` にある。
+
+| ファイル                                  | 役割                                  |
+| ----------------------------------------- | ------------------------------------- |
+| `.github/workflows/preview.yml`           | 登録と削除の中身 (reusable workflow)  |
+| `.github/workflows/preview-cleanup.yml`   | PR が閉じたら消す                     |
+| `.github/workflows/preview-reconcile.yml` | 夜間に open な PR だけへ揃え直す      |
+| `.github/scripts/preview-tfc.sh`          | Terraform Cloud の変数更新と run 起動 |
+
+登録は `docker-publish.yml` の `preview` ジョブが `needs: build` 付きで呼ぶ。別ワークフローに
+すると同じ `pull_request` イベントから独立に起動してしまい、イメージの publish より先に
+Terraform が走って、まだ無いタグを pull しようとしてタスクが起動しない。
+
+やっているのは Terraform Cloud の変数を書き換えて run を起こすことだけで、**AWS の認証情報は
+渡していない**。必要な設定は次のとおり。`PREVIEW_ENABLED` が `true` になるまで、プレビュー
+関連のジョブは黙ってスキップされる。
+
+| 種類     | 名前                                                            | 備考                                                     |
+| -------- | --------------------------------------------------------------- | -------------------------------------------------------- |
+| Secret   | `TFC_TOKEN`                                                     | `aws-preview` ワークスペースにスコープしたチームトークン |
+| Variable | `PREVIEW_ENABLED`                                               | `true` で有効になる                                      |
+| Variable | `TFC_ORGANIZATION` / `TFC_PREVIEW_WORKSPACE` / `PREVIEW_DOMAIN` | 省略時は infra 側の既定値                                |
+
+イメージは PR でも GHCR に push する。タグは 2 つで、`pr-<番号>` は人が手元に持ってくる用、
+`pr-<番号>-<sha>` がプレビューの指す先。可変タグだけだと push しても Terraform に差分が
+出ず、プレビューが入れ替わらないため分けてある。fork や無関係な人の PR は
+`author_association` のガードで publish 自体を弾いている (`pull_request_target` は使わない)。
+
+`Dockerfile` に手を入れる必要はない。起動時マイグレーションがあるので、プレビューでも
+コンテナが立ち上がるときに自分でスキーマを合わせる。
+
 ## 機能を足すとき
 
 1. `src/feature/<domain>/domain/` に型とポートを定義する

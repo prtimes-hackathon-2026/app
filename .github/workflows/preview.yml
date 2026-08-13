@@ -1,0 +1,111 @@
+name: Preview
+
+# PR プレビューの登録と削除。中身が同じなので reusable workflow にして
+# docker-publish.yml (登録) と preview-cleanup.yml (削除) から呼ぶ。
+#
+# やることは「TFC の変数 preview_pull_requests を書き換えて run を起こす」だけ。
+# AWS の認証情報は一切要らない (リソースを作るのは Terraform 側)。
+#
+# 呼び出し側は PR 番号を含めない concurrency グループに入れること。読んで書く
+# 操作なので、直列化しないと同時に走った PR の更新が消える。
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: 対象の PR 番号
+        required: true
+        type: number
+      image_tag:
+        description: プレビューが指すイメージタグ。remove のときは使わない
+        required: false
+        type: string
+        default: ''
+      remove:
+        description: true ならこの PR のプレビューを消す
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      TFC_TOKEN:
+        description: aws-preview ワークスペースにスコープした Terraform Cloud のチームトークン
+        required: true
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    # TFC の run 完了まで待つ。Terraform 側が固まったときに枠を占有し続けない
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      # プレビュー URL を PR にコメントする。呼び出し側の job にも同じ権限が要る
+      pull-requests: write
+
+    env:
+      TFC_TOKEN: ${{ secrets.TFC_TOKEN }}
+      TFC_ORGANIZATION: ${{ vars.TFC_ORGANIZATION || 'prtimes-hackathon-2026' }}
+      TFC_WORKSPACE: ${{ vars.TFC_PREVIEW_WORKSPACE || 'aws-preview' }}
+      PREVIEW_DOMAIN: ${{ vars.PREVIEW_DOMAIN || 'preview-prtimes-hackathon-2026.naohanpen.dev' }}
+      PR_NUMBER: ${{ inputs.pr_number }}
+
+    steps:
+      # ワークフローのスクリプトだけあればよい
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
+      - name: TFC の変数を更新して run を待つ
+        id: tfc
+        env:
+          REMOVE: ${{ inputs.remove }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [ "${REMOVE}" = "true" ]; then
+            .github/scripts/preview-tfc.sh remove "${PR_NUMBER}"
+          elif [ -z "${IMAGE_TAG}" ]; then
+            echo '::error::image_tag が空です。build ジョブの出力を渡してください。'
+            exit 1
+          else
+            .github/scripts/preview-tfc.sh upsert "${PR_NUMBER}" "${IMAGE_TAG}"
+          fi
+
+      # 同じ PR に何度も push されるので、コメントは 1 本を貼り替える。
+      - name: プレビュー URL を PR にコメントする
+        if: ${{ !inputs.remove }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+          RUN_URL: ${{ steps.tfc.outputs.run_url }}
+        run: |
+          marker='<!-- pr-preview -->'
+          url="https://pr-${PR_NUMBER}.${PREVIEW_DOMAIN}"
+
+          {
+            echo "${marker}"
+            echo '### PR プレビュー'
+            echo
+            echo "${url}"
+            echo
+            echo "- イメージ: \`${IMAGE_TAG}\`"
+            [ -n "${RUN_URL}" ] && echo "- [Terraform Cloud の run](${RUN_URL})"
+            echo '- PR を閉じると消えます'
+          } >comment.md
+
+          # 既存のコメントを探す。--paginate は --jq をページごとに適用するので、
+          # 配列全体に対する map ではなく 1 件ずつ流して先頭を取る。
+          comment_id=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"${marker}\")) | .id" | head -n 1)
+
+          if [ -n "${comment_id}" ]; then
+            endpoint="repos/${REPO}/issues/comments/${comment_id}"
+            method=PATCH
+          else
+            endpoint="repos/${REPO}/issues/${PR_NUMBER}/comments"
+            method=POST
+          fi
+
+          jq -Rs '{body: .}' <comment.md |
+            gh api --method "${method}" "${endpoint}" --input - >/dev/null
+
+          echo "コメントを更新しました: ${url}"
