@@ -7,18 +7,6 @@
 -- そちらと同じく、実 RDS との照合は済んでいない (voice-agent プロトタイプの SQL から
 -- 起こしたもの)。実接続できたら `pnpm db:stats:pull` で引き直して差分を確認すること。
 
--- 骨組みのサンプルとして残してある。PR TIMES 側には存在しないテーブルなので、
--- 本番ではこれを参照する feature/stats は実行時に落ちる (削除の判断は別途)
-CREATE TABLE IF NOT EXISTS agent_daily_stats (
-  agent_id      uuid    NOT NULL,
-  date          date    NOT NULL,
-  run_count     integer NOT NULL DEFAULT 0,
-  success_count integer NOT NULL DEFAULT 0,
-  PRIMARY KEY (agent_id, date)
-);
-
--- ─────────────────────────────────────────── PR TIMES 相当
-
 CREATE TABLE IF NOT EXISTS industry (
   industry_id   integer PRIMARY KEY,
   industry_name text
