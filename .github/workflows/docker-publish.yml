@@ -74,3 +74,51 @@ jobs:
           # レイヤーキャッシュを Actions のキャッシュに退避して次回のビルドを短くする
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    # main への push だけ。タグ push は :latest を動かさないので対象外。
+    # AWS_DEPLOY_ROLE_ARN が未設定のうちは黙ってスキップする (infra 側の
+    # terraform apply が済むまではロールがまだ存在しない)
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # OIDC トークンを発行してもらうために必要。これがないと
+      # configure-aws-credentials が認証情報を取れない
+      id-token: write
+
+    env:
+      # infra リポジトリの terraform output ecs_cluster_name / ecs_service_name
+      AWS_REGION: ap-northeast-1
+      CLUSTER: webapp-dev
+      SERVICE: webapp-dev
+
+    steps:
+      # アクセスキーは持たせず、OIDC で 1 時間だけ有効な一時認証情報を受け取る。
+      # ロールは infra リポジトリの iam_github_actions.tf が作っている
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # タスク定義の image は :latest 固定なので、Terraform には差分が出ない。
+      # 新しいイメージを取り込むにはサービスの入れ替えを明示的に叩く
+      - name: Force new deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$CLUSTER" \
+            --service "$SERVICE" \
+            --force-new-deployment \
+            --query 'service.deployments[0].id' \
+            --output text
+
+      # 新しいタスクが定常状態になるまで待つ。起動に失敗し続けると
+      # deployment circuit breaker が旧タスクへ切り戻し、待ちは 10 分で
+      # タイムアウトしてこのジョブが落ちる (= デプロイ失敗に気づける)
+      - name: Wait for the service to stabilize
+        run: aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
