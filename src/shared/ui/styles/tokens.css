@@ -32,6 +32,8 @@
 
   --c-primary: #1668c9;
   --c-primary-hover: #12559f;
+  /* 青の一番濃いところ。ロゴなど、面で置くと主色では軽い場所に使う */
+  --c-primary-strong: #0e4278;
   --c-primary-soft: #eaf2fc;
   --c-on-primary: #ffffff;
 

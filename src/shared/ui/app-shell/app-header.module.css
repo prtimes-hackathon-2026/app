@@ -11,8 +11,11 @@
   border-bottom: 1px solid var(--c-border);
 }
 
+/* ロゴ画像とサービス名テキストのどちらが入っても同じ高さに収まるようにする */
 .brand {
+  display: flex;
   flex: none;
+  align-items: center;
   color: var(--c-text);
   font-size: var(--fs-2xl);
   font-weight: var(--fw-bold);
@@ -146,5 +149,10 @@
 
   .brand {
     font-size: var(--fs-xl);
+  }
+
+  .brand > svg {
+    width: auto;
+    height: 20px;
   }
 }
