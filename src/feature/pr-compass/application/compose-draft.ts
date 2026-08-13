@@ -24,11 +24,10 @@ export type Draft = {
 const pct = (n: number) => `${n}%`
 const jp = (n: number) => n.toLocaleString('ja-JP')
 
-/** サジェストは本文の末尾に、選ばせるのではなく例として置く */
-export function withSuggestions(text: string, items?: readonly string[]) {
-  if (!items?.length) return text
-  return `${text}\n\n（例：${items.join(' / ')}　— この中になければ、そのまま書いてもらって大丈夫です）`
-}
+/**
+ * サジェストは本文に混ぜず、別に返して画面側でチップとして出す。
+ * 文中に「/」区切りで並べると読みにくいうえ、選択式に見えてしまう。
+ */
 
 // ─────────────────────────────────────────── ①診断
 

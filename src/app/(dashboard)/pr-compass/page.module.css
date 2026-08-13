@@ -326,3 +326,33 @@
     height: calc(100dvh - var(--header-h) - 44px - 220px);
   }
 }
+
+/* サジェスト。選ばせるためではなく、書き出しの助けとして置く */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+.suggestion {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-full, 999px);
+  cursor: pointer;
+  transition: 0.12s;
+}
+
+.suggestion:hover {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.suggestion:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}

@@ -20,7 +20,6 @@ import {
   composeProposal,
   composeReason,
   composeWriteGuide,
-  withSuggestions,
   type Draft,
 } from './compose-draft'
 
@@ -37,6 +36,8 @@ export type AdvanceResult = {
   content: string
   phase: Phase
   memo: string
+  /** 入力の助けとして画面に出す。選ばせるためではないので、押しても送信はしない */
+  suggestions: readonly string[]
 }
 
 /**
@@ -108,6 +109,7 @@ export function advanceConversation(deps: {
           '対象の企業が見つかりませんでした。設定を確認してからもう一度お試しください。',
         phase: 'discovery',
         memo,
+        suggestions: [],
       }
     }
 
@@ -141,7 +143,8 @@ export function advanceConversation(deps: {
     })
 
     return {
-      content: withSuggestions(spoken, suggestions),
+      content: spoken,
+      suggestions: suggestions ?? [],
       // 書きに行くか、人に渡すかが決まったときだけ閉じる。
       // 断られただけで閉じてしまうと、粘る前に入力欄が消える
       phase: state.finished ? 'complete' : phaseOf(step),

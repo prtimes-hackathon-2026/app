@@ -87,6 +87,7 @@ export default function PrCompassPage() {
   const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState<Phase>('discovery')
   const [memo, setMemo] = useState('')
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -100,10 +101,11 @@ export default function PrCompassPage() {
       body: JSON.stringify({ messages: [] }),
     })
       .then((r) => r.json())
-      .then(({ content, phase: p, memo: m }) => {
+      .then(({ content, phase: p, memo: m, suggestions: s }) => {
         setMessages([{ role: 'assistant', content }])
         if (p) setPhase(p as Phase)
         if (m) setMemo(m)
+        setSuggestions(Array.isArray(s) ? s : [])
       })
       .catch(() => {
         setMessages([
@@ -140,6 +142,7 @@ export default function PrCompassPage() {
     ]
     setMessages(newMessages)
     setInput('')
+    setSuggestions([])
     if (textareaRef.current) textareaRef.current.style.height = 'auto'
     setLoading(true)
 
@@ -149,11 +152,12 @@ export default function PrCompassPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       })
-      const { content, phase: p, memo: m } = await res.json()
+      const { content, phase: p, memo: m, suggestions: s } = await res.json()
 
       setMessages([...newMessages, { role: 'assistant', content }])
       if (p) setPhase(p as Phase)
       if (m) setMemo(m)
+      setSuggestions(Array.isArray(s) ? s : [])
     } catch {
       setMessages([
         ...newMessages,
@@ -168,10 +172,19 @@ export default function PrCompassPage() {
   }, [input, loading, isComplete, messages])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // 日本語入力の変換確定も Enter なので、変換中は送信しない。
+    // これが無いと、変換のたびに送信されて文章が組み立てられなくなる
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       send()
     }
+  }
+
+  /** サジェストは入力欄に入れるだけ。押しても送信はしない */
+  const applySuggestion = (text: string) => {
+    setInput(text)
+    textareaRef.current?.focus()
   }
 
   return (
@@ -224,6 +237,20 @@ export default function PrCompassPage() {
 
         {!isComplete && (
           <div className={styles.inputArea}>
+            {suggestions.length > 0 && !loading && (
+              <div className={styles.suggestions}>
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={styles.suggestion}
+                    onClick={() => applySuggestion(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className={styles.inputRow}>
               <textarea
                 ref={textareaRef}
