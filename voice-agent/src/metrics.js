@@ -1,5 +1,5 @@
-import { USING_MOCK, query } from './db.js';
-import * as mock from './mock.js';
+import { USING_MOCK, query } from './db.js'
+import * as mock from './mock.js'
 
 /**
  * 実データで分かったこと（2026-08-13 / prtimes RDS）
@@ -14,33 +14,41 @@ import * as mock from './mock.js';
  *   「配信本数別に、手応えのある結果（業種内PV上位10%）に届いた企業の割合」
  */
 
-const CACHE = new Map();
-const TTL = 30 * 60 * 1000;
+const CACHE = new Map()
+const TTL = 30 * 60 * 1000
 
 async function cached(key, fn) {
-  const hit = CACHE.get(key);
-  if (hit && Date.now() - hit.at < TTL) return hit.value;
-  const value = await fn();
-  CACHE.set(key, { at: Date.now(), value });
-  return value;
+  const hit = CACHE.get(key)
+  if (hit && Date.now() - hit.at < TTL) return hit.value
+  const value = await fn()
+  CACHE.set(key, { at: Date.now(), value })
+  return value
 }
 
-export const BUCKET_LABELS = ['1本', '2本', '3本', '4〜5本', '6〜10本', '11〜20本', '21本以上'];
+export const BUCKET_LABELS = [
+  '1本',
+  '2本',
+  '3本',
+  '4〜5本',
+  '6〜10本',
+  '11〜20本',
+  '21本以上',
+]
 
 export function bucketOf(n) {
-  if (n <= 1) return '1本';
-  if (n === 2) return '2本';
-  if (n === 3) return '3本';
-  if (n <= 5) return '4〜5本';
-  if (n <= 10) return '6〜10本';
-  if (n <= 20) return '11〜20本';
-  return '21本以上';
+  if (n <= 1) return '1本'
+  if (n === 2) return '2本'
+  if (n === 3) return '3本'
+  if (n <= 5) return '4〜5本'
+  if (n <= 10) return '6〜10本'
+  if (n <= 20) return '11〜20本'
+  return '21本以上'
 }
 
 // ─────────────────────────────────────────── 企業
 
 export async function getCompany(companyId) {
-  if (USING_MOCK) return mock.mockCompany();
+  if (USING_MOCK) return mock.mockCompany()
   const rows = await query(
     `SELECT c.company_id, c.company_name, c.industry_id, i.industry_name,
             c.capital, c.foundation_date, LEFT(COALESCE(c.description,''), 300) AS description
@@ -48,12 +56,12 @@ export async function getCompany(companyId) {
        LEFT JOIN industry i ON i.industry_id = c.industry_id
       WHERE c.company_id = $1`,
     [companyId],
-  );
-  return rows[0] || null;
+  )
+  return rows[0] || null
 }
 
 export async function getHistory(companyId) {
-  if (USING_MOCK) return mock.mockHistory();
+  if (USING_MOCK) return mock.mockHistory()
 
   const [agg] = await query(
     `SELECT COUNT(*)::int AS total_releases,
@@ -61,7 +69,7 @@ export async function getHistory(companyId) {
             MAX(created_at) AS last_released_at
        FROM release WHERE company_id = $1`,
     [companyId],
-  );
+  )
 
   const recent = await query(
     `SELECT r.title, r.created_at AS released_at, s.page_view
@@ -71,24 +79,29 @@ export async function getHistory(companyId) {
       WHERE r.company_id = $1
       ORDER BY r.created_at DESC LIMIT 5`,
     [companyId],
-  );
+  )
 
-  const last = agg.last_released_at ? new Date(agg.last_released_at) : null;
+  const last = agg.last_released_at ? new Date(agg.last_released_at) : null
   return {
     total_releases: agg.total_releases,
     first_released_at: agg.first_released_at,
     last_released_at: agg.last_released_at,
     stopped_months: last
-      ? Math.max(0, Math.round((Date.now() - last.getTime()) / (1000 * 60 * 60 * 24 * 30.4)))
+      ? Math.max(
+          0,
+          Math.round(
+            (Date.now() - last.getTime()) / (1000 * 60 * 60 * 24 * 30.4),
+          ),
+        )
       : null,
     recent,
-  };
+  }
 }
 
 // ─────────────────────────────────────────── 中心指標：当たり率カーブ
 
 export async function getHitCurve(industryId) {
-  if (USING_MOCK) return mock.mockHitCurve();
+  if (USING_MOCK) return mock.mockHitCurve()
 
   return cached(`hit:${industryId}`, async () => {
     const rows = await query(
@@ -115,14 +128,18 @@ export async function getHitCurve(industryId) {
               (SELECT ROUND(t)::int FROM thr) AS threshold_pv
          FROM comp GROUP BY 1 ORDER BY MIN(n)`,
       [industryId],
-    );
-    if (!rows.length) return null;
+    )
+    if (!rows.length) return null
     return {
-      buckets: rows.map(({ bucket, companies, hit_pct }) => ({ bucket, companies, hit_pct })),
+      buckets: rows.map(({ bucket, companies, hit_pct }) => ({
+        bucket,
+        companies,
+        hit_pct,
+      })),
       threshold_pv: rows[0].threshold_pv,
       total_companies: rows.reduce((a, r) => a + r.companies, 0),
-    };
-  });
+    }
+  })
 }
 
 // ─────────────────────────────────────────── 期間で見た場合
@@ -133,7 +150,7 @@ export async function getHitCurve(industryId) {
  * 「時間では上がらない。本数でしか上がらない」を示すための対になる指標。
  */
 export async function getPeriodCurve(industryId) {
-  if (USING_MOCK) return mock.mockPeriodCurve();
+  if (USING_MOCK) return mock.mockPeriodCurve()
 
   return cached(`period:${industryId}`, async () => {
     const rows = await query(
@@ -170,15 +187,15 @@ export async function getPeriodCurve(industryId) {
               PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY cum_pv)::int AS cum_pv_p90
          FROM win GROUP BY months ORDER BY months`,
       [industryId],
-    );
-    return { rows };
-  });
+    )
+    return { rows }
+  })
 }
 
 // ─────────────────────────────────────────── 傾向：リリース種別ごと
 
 export async function getTrends(industryId) {
-  if (USING_MOCK) return mock.mockTrends();
+  if (USING_MOCK) return mock.mockTrends()
 
   return cached(`trend:${industryId}`, async () => {
     const rows = await query(
@@ -197,9 +214,9 @@ export async function getTrends(industryId) {
         ORDER BY pv_p90 DESC NULLS LAST
         LIMIT 7`,
       [industryId],
-    );
-    return { items: rows };
-  });
+    )
+    return { items: rows }
+  })
 }
 
 // ─────────────────────────────────────────── 休止から再開した企業
@@ -213,7 +230,7 @@ export async function getTrends(industryId) {
  * 「もう一度やってみよう」を支える唯一の材料。方法論ではなく実例が人を動かす。
  */
 export async function getResumeStats(industryId) {
-  if (USING_MOCK) return mock.mockResume();
+  if (USING_MOCK) return mock.mockResume()
 
   return cached(`resume:${industryId}`, async () => {
     const base = `
@@ -249,7 +266,7 @@ export async function getResumeStats(industryId) {
                MAX(CASE WHEN r.pv >= (SELECT t FROM thr) THEN 1 ELSE 0 END) AS hit_before
           FROM rel r JOIN resume s ON s.company_id = r.company_id
          WHERE r.created_at < s.resume_at GROUP BY 1
-      )`;
+      )`
 
     const segments = await query(
       `${base}
@@ -263,7 +280,7 @@ export async function getResumeStats(industryId) {
          FROM before b JOIN after a ON a.company_id = b.company_id
         GROUP BY 1 ORDER BY 1`,
       [industryId],
-    );
+    )
 
     const gaps = await query(
       `${base}
@@ -272,21 +289,21 @@ export async function getResumeStats(industryId) {
               MIN(gap_months)::int AS ord, COUNT(*)::int AS companies
          FROM resume GROUP BY 1 ORDER BY 2`,
       [industryId],
-    );
+    )
 
     return {
       segments,
       gaps: gaps.map(({ gap, companies }) => ({ gap, companies })),
       total_resumed: segments.reduce((a, r) => a + r.companies, 0),
-    };
-  });
+    }
+  })
 }
 
 /** その企業の配信本数に対応する再開セグメントを返す */
 export function resumeSegmentFor(n, stats) {
-  if (!stats?.segments?.length) return null;
-  const seg = n <= 1 ? 1 : n <= 3 ? 2 : n <= 10 ? 3 : 4;
-  return stats.segments.find((s) => s.seg === seg) || null;
+  if (!stats?.segments?.length) return null
+  const seg = n <= 1 ? 1 : n <= 3 ? 2 : n <= 10 ? 3 : 4
+  return stats.segments.find((s) => s.seg === seg) || null
 }
 
 // ─────────────────────────────────────────── 打ち手ごとの効果差分
@@ -299,7 +316,7 @@ export function resumeSegmentFor(n, stats) {
  *   タイトルの数字  あり 11.3% / なし 8.9%
  */
 export async function getLevers(industryId) {
-  if (USING_MOCK) return mock.mockLevers();
+  if (USING_MOCK) return mock.mockLevers()
 
   return cached(`lever:${industryId}`, async () => {
     const rows = await query(
@@ -337,41 +354,109 @@ export async function getLevers(industryId) {
          SELECT 'title_bracket',
                 CASE WHEN rel.title LIKE '%【%' THEN 'on' ELSE 'off' END, rel.pv
            FROM rel
+         UNION ALL
+         SELECT 'location',
+                CASE WHEN lo.release_id IS NULL THEN 'off' ELSE 'on' END, rel.pv
+           FROM rel LEFT JOIN (SELECT DISTINCT company_id, release_id FROM release_location) lo
+             ON lo.company_id = rel.company_id AND lo.release_id = rel.release_id
+         UNION ALL
+         -- カテゴリは「増やす」ことに意味が無い（1件10.9% / 2件10.2%）。
+         -- 効くのは 0→1 だけ（0.4% → 10.9%）なので、有無だけで見る。
+         SELECT 'category',
+                CASE WHEN ca.release_id IS NULL THEN 'off' ELSE 'on' END, rel.pv
+           FROM rel LEFT JOIN (SELECT DISTINCT company_id, release_id
+                                 FROM release_business_category) ca
+             ON ca.company_id = rel.company_id AND ca.release_id = rel.release_id
        )
        SELECT lever, variant, COUNT(*)::int AS n,
               ROUND(AVG(CASE WHEN pv >= (SELECT t FROM thr) THEN 1.0 ELSE 0 END) * 100, 1)::float AS hit_pct
          FROM flat GROUP BY 1, 2`,
       [industryId],
-    );
+    )
 
-    const out = {};
+    const out = {}
     for (const r of rows) {
-      out[r.lever] ||= {};
-      out[r.lever][r.variant] = { n: r.n, hit_pct: r.hit_pct };
+      out[r.lever] ||= {}
+      out[r.lever][r.variant] = { n: r.n, hit_pct: r.hit_pct }
     }
-    for (const [k, v] of Object.entries(out)) {
+    for (const v of Object.values(out)) {
       if (v.on && v.off && v.off.hit_pct > 0) {
-        v.ratio = Math.round((v.on.hit_pct / v.off.hit_pct) * 10) / 10;
-        v.n = v.on.n + v.off.n;
+        v.ratio = Math.round((v.on.hit_pct / v.off.hit_pct) * 10) / 10
+        v.n = v.on.n + v.off.n
       }
     }
-    return out;
-  });
+    return out
+  })
+}
+
+// ─────────────────────────────────────────── 短期の達成率
+
+/**
+ * 初回配信から3か月以内に、どこまで届いたか。
+ * 情報通信での実測（2026-08-14 / 22,028社・平均2.3本）:
+ *   1本でも50PV以上 12.5% / 200PV以上 2.4% / 1000PV以上 0.3%
+ *
+ * 「短期なら広告のほうがいい」を言い切らずに示すための材料。
+ * 数字だけ出して、判断は相手に委ねる。
+ */
+export async function getAchievement(industryId) {
+  if (USING_MOCK) return mock.mockAchievement()
+
+  return cached(`achieve:${industryId}`, async () => {
+    const [row] = await query(
+      `WITH peers AS (SELECT company_id FROM company WHERE industry_id = $1),
+       base AS (
+         SELECT r.company_id, MIN(r.created_at) AS first_at
+           FROM release r JOIN peers p ON p.company_id = r.company_id
+          GROUP BY 1
+       ),
+       w AS (
+         SELECT b.company_id,
+                MAX(COALESCE(s.page_view, 0))::int AS best,
+                COUNT(*)::int AS n
+           FROM base b
+           JOIN release r ON r.company_id = b.company_id
+           LEFT JOIN release_statistic s
+                  ON s.company_id = r.company_id AND s.release_id = r.release_id
+          WHERE r.created_at < b.first_at + INTERVAL '3 months'
+            AND b.first_at + INTERVAL '3 months' <= NOW()
+          GROUP BY 1
+       )
+       SELECT COUNT(*)::int AS companies,
+              ROUND(AVG(n), 1)::float AS avg_releases,
+              ROUND(AVG(CASE WHEN best >=   50 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_50,
+              ROUND(AVG(CASE WHEN best >=  200 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_200,
+              ROUND(AVG(CASE WHEN best >= 1000 THEN 1.0 ELSE 0 END) * 100, 1)::float AS pct_1000
+         FROM w`,
+      [industryId],
+    )
+    return row || null
+  })
 }
 
 // ─────────────────────────────────────────── 未使用機能
 
 export async function getUnusedFeatures(company) {
-  if (USING_MOCK) return mock.mockUnused();
+  if (USING_MOCK) return mock.mockUnused()
 
-  const items = [];
-  let levers = {};
-  try { levers = await getLevers(company.industry_id); } catch { /* 効果差分は無くても動く */ }
+  const items = []
+  let levers = {}
+  try {
+    levers = await getLevers(company.industry_id)
+  } catch {
+    /* 効果差分は無くても動く */
+  }
   const impactOf = (key) => {
-    const l = levers[key];
-    if (!l?.on || !l?.off || !l.ratio) return null;
-    return { metric: 'hit_pct', with: l.on.hit_pct, without: l.off.hit_pct, ratio: l.ratio, n: l.n };
-  };
+    const l = levers[key]
+    if (!l?.on || !l?.off || !l.ratio) return null
+    return {
+      metric: 'hit_pct',
+      with: l.on.hit_pct,
+      without: l.off.hit_pct,
+      ratio: l.ratio,
+      n: l.n,
+    }
+  }
   try {
     const [f] = await query(
       `SELECT COUNT(*)::int AS total,
@@ -381,7 +466,7 @@ export async function getUnusedFeatures(company) {
               COUNT(DISTINCT release_type_id)::int AS types
          FROM release WHERE company_id = $1`,
       [company.company_id],
-    );
+    )
 
     const [k] = await query(
       `SELECT COALESCE(AVG(kw.cnt), 0)::float AS avg_keywords
@@ -391,23 +476,41 @@ export async function getUnusedFeatures(company) {
                 ON kw.company_id = r.company_id AND kw.release_id = r.release_id
         WHERE r.company_id = $1`,
       [company.company_id],
-    );
+    )
 
-    if (!f || f.total === 0) return { items };
+    if (!f || f.total === 0) return { items }
 
     if (k.avg_keywords < 3) {
-      items.push({ key: 'keyword', label: 'キーワード設定',
-        detected: `平均${k.avg_keywords.toFixed(1)}件`, impact: impactOf('keyword') });
+      items.push({
+        key: 'keyword',
+        label: 'キーワード設定',
+        detected: `平均${k.avg_keywords.toFixed(1)}件`,
+        impact: impactOf('keyword'),
+      })
     }
     if (f.no_image === f.total) {
-      items.push({ key: 'main_image', label: 'メイン画像', detected: '未設定',
-        impact: impactOf('main_image') });
+      items.push({
+        key: 'main_image',
+        label: 'メイン画像',
+        detected: '未設定',
+        impact: impactOf('main_image'),
+      })
     }
     if (f.no_sub === f.total) {
-      items.push({ key: 'subtitle', label: 'サブタイトル', detected: '未設定', impact: null });
+      items.push({
+        key: 'subtitle',
+        label: 'サブタイトル',
+        detected: '未設定',
+        impact: null,
+      })
     }
     if (f.no_video === f.total) {
-      items.push({ key: 'video', label: '動画の掲載', detected: '未設定', impact: null });
+      items.push({
+        key: 'video',
+        label: '動画の掲載',
+        detected: '未設定',
+        impact: null,
+      })
     }
     const [t] = await query(
       `SELECT COUNT(*) FILTER (WHERE title ~ '[0-9０-９]')::int AS with_num,
@@ -415,28 +518,41 @@ export async function getUnusedFeatures(company) {
               COUNT(*)::int AS total
          FROM release WHERE company_id = $1`,
       [company.company_id],
-    );
+    )
     if (t && t.with_num === 0) {
-      items.push({ key: 'title_number', label: 'タイトルに数字を入れる',
-        detected: '使っていない', impact: impactOf('title_number') });
+      items.push({
+        key: 'title_number',
+        label: 'タイトルに数字を入れる',
+        detected: '使っていない',
+        impact: impactOf('title_number'),
+      })
     }
     if (t && t.with_br === 0) {
-      items.push({ key: 'title_bracket', label: 'タイトルの【】',
-        detected: '使っていない', impact: impactOf('title_bracket') });
+      items.push({
+        key: 'title_bracket',
+        label: 'タイトルの【】',
+        detected: '使っていない',
+        impact: impactOf('title_bracket'),
+      })
     }
 
     if (f.types <= 1 && f.total >= 2) {
-      items.push({ key: 'type', label: 'リリース種別の使い分け', detected: '1種類のみ', impact: null });
+      items.push({
+        key: 'type',
+        label: 'リリース種別の使い分け',
+        detected: '1種類のみ',
+        impact: null,
+      })
     }
   } catch (e) {
-    console.error('[unused]', e.message);
+    console.error('[unused]', e.message)
   }
-  return { items };
+  return { items }
 }
 
 /** デモ対象を探す：配信が少なく、しばらく止まっている企業 */
 export async function findStoppedCompanies(limit = 15) {
-  if (USING_MOCK) return [];
+  if (USING_MOCK) return []
   return query(
     `SELECT c.company_id, c.company_name, i.industry_name,
             t.n::int AS releases, t.last_at
@@ -450,5 +566,5 @@ export async function findStoppedCompanies(limit = 15) {
       ORDER BY t.last_at DESC
       LIMIT $1`,
     [limit],
-  );
+  )
 }
