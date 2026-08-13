@@ -41,3 +41,45 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  migrations:
+    runs-on: ubuntu-latest
+    # generate がリネーム等の確認を求めて止まった場合に備えて上限を切る
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # base ブランチと突き合わせるので履歴が要る
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # スキーマを変えたのに generate し忘れていないか。DB には接続しない
+      - name: Generate
+        run: pnpm db:app:generate
+
+      - name: 生成物がコミットされているか
+        run: |
+          if [ -n "$(git status --porcelain drizzle/app/migrations)" ]; then
+            echo '::error::スキーマと drizzle/app/migrations が食い違っています。pnpm db:app:generate の結果をコミットしてください。'
+            git status --short drizzle/app/migrations
+            git diff -- drizzle/app/migrations
+            exit 1
+          fi
+
+      # 同じ番号のマイグレーションを持つ別ブランチが先にマージされていないか。
+      # push (main) 側は突き合わせる相手がいないので PR のときだけ見る
+      - name: base ブランチとの整合性
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          pnpm db:app:check "origin/$BASE_REF"
+        env:
+          BASE_REF: ${{ github.base_ref }}

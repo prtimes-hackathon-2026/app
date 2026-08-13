@@ -34,6 +34,10 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# 起動時マイグレーション (src/instrumentation.ts) が読む SQL とジャーナル。
+# .next/standalone には含まれないので個別に持ち込む
+COPY --from=builder --chown=nextjs:nodejs /app/drizzle/app/migrations ./drizzle/app/migrations
+
 USER nextjs
 EXPOSE 3000
 

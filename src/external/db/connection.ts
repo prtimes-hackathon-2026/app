@@ -26,7 +26,7 @@ function registry(): Map<string, postgres.Sql> {
   return g.__sqlRegistry
 }
 
-function toSslOption(mode: SslMode): postgres.Options<never>['ssl'] {
+export function toSslOption(mode: SslMode): postgres.Options<never>['ssl'] {
   return mode === 'disable' ? false : mode
 }
 
