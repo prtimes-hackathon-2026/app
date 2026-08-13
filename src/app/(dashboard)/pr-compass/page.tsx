@@ -82,7 +82,7 @@ function MemoPanel({
 export default function PrCompassPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState<Phase>('discovery')
   const [memo, setMemo] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -92,7 +92,6 @@ export default function PrCompassPage() {
 
   // 初回AIメッセージを取得
   useEffect(() => {
-    setLoading(true)
     fetch('/api/pr-compass/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
