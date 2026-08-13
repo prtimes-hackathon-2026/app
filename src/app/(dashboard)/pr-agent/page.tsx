@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
 
 import {
@@ -8,11 +7,12 @@ import {
   type UserAnswer,
 } from '@/feature/pr-agent'
 import { prMetricsFeature } from '@/feature/pr-metrics'
+import { CollapsibleCard, LinkButton, PageHeader, Stack } from '@/shared/ui'
 
+import { Alert } from './alert'
 import { AnswerBubble, answerLabel } from './answer'
 import { ConversationRunner } from './conversation-runner'
 import { DemoCompanyPicker } from './demo-company-picker'
-import styles from './pr-agent.module.css'
 import { findHitCurve, TurnView, type HitCurveBlock } from './turn-view'
 
 /**
@@ -23,12 +23,17 @@ import { findHitCurve, TurnView, type HitCurveBlock } from './turn-view'
  * 動的レンダリングになる。`dynamic = 'force-dynamic'` は書かない
  * (このバージョンでは旧モデル扱いで、将来 cacheComponents を入れると外す対象になる)。
  *
+ * ヘッダー・サイドバーは (dashboard) の共通レイアウトが持つので、ここは中身だけ書く。
  * 画面が触れるのは feature の公開 API だけ。DB も LLM もここからは見えない。
  */
 
 export const metadata: Metadata = {
   title: '広報伴走エージェント',
 }
+
+const title = '広報伴走エージェント'
+const description =
+  '配信が止まっている企業の「次の 1 本」を、データを見ながら決めます。'
 
 /** 会話の履歴を、そのまま上から描ける形に均したもの */
 type Entry =
@@ -52,13 +57,18 @@ export default async function Page(props: PageProps<'/pr-agent'>) {
   const found = await prAgentFeature.get(conversationId)
   if (found === null) {
     return (
-      <main className={styles.page}>
-        <h1 className={styles.title}>広報伴走エージェント</h1>
-        <p className={styles.error}>この会話は見つかりませんでした。</p>
-        <p>
-          <Link href="/pr-agent">最初からやり直す</Link>
-        </p>
-      </main>
+      <>
+        <PageHeader title={title} description={description} />
+        <Stack gap={4}>
+          <DemoNotice />
+          <Alert message="この会話は見つかりませんでした。" />
+          <div>
+            <LinkButton href="/pr-agent" variant="accent">
+              最初からやり直す
+            </LinkButton>
+          </div>
+        </Stack>
+      </>
     )
   }
 
@@ -100,31 +110,39 @@ export default async function Page(props: PageProps<'/pr-agent'>) {
     conversation.status === 'in_progress' ? (lastTurn?.question ?? null) : null
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>広報伴走エージェント</h1>
-      <DemoNotice />
-
-      {entries.map((entry) =>
-        entry.kind === 'turn' ? (
-          <TurnView
-            key={entry.key}
-            turn={entry.turn}
-            hitCurveFallback={entry.hitCurveFallback}
-          />
-        ) : (
-          <AnswerBubble key={entry.key} label={entry.label} />
-        ),
-      )}
-
-      <ConversationRunner
-        conversationId={conversation.id}
-        question={question}
+    <>
+      <PageHeader
+        title={title}
+        description={description}
+        actions={
+          <LinkButton href="/pr-agent" variant="outline">
+            別の企業で試す
+          </LinkButton>
+        }
       />
 
-      <p className={styles.footer}>
-        <Link href="/pr-agent">別の企業で試す</Link>
-      </p>
-    </main>
+      {/* ターンと回答が交互に積まれる。ターンの中はさらに Stack で組む */}
+      <Stack gap={6}>
+        <DemoNotice />
+
+        {entries.map((entry) =>
+          entry.kind === 'turn' ? (
+            <TurnView
+              key={entry.key}
+              turn={entry.turn}
+              hitCurveFallback={entry.hitCurveFallback}
+            />
+          ) : (
+            <AnswerBubble key={entry.key} label={entry.label} />
+          ),
+        )}
+
+        <ConversationRunner
+          conversationId={conversation.id}
+          question={question}
+        />
+      </Stack>
+    </>
   )
 }
 
@@ -132,28 +150,28 @@ async function DemoStart() {
   const companies = await prMetricsFeature.findStoppedCompanies()
 
   return (
-    <main className={styles.page}>
-      <h1 className={styles.title}>広報伴走エージェント</h1>
-      <DemoNotice />
-      <p>
-        配信が止まっている企業の一覧です。1
-        社選ぶと、その企業のデータで対話を始めます。
-      </p>
-      <DemoCompanyPicker companies={companies} />
-    </main>
+    <>
+      <PageHeader title={title} description={description} />
+      <Stack gap={4}>
+        <DemoNotice />
+        <DemoCompanyPicker companies={companies} />
+      </Stack>
+    </>
   )
 }
 
 /**
  * 認証がまだ無いことによる暫定措置であることを、利用者にも分かる形で出しておく
  * (設計 §11(a))。認証が入ったらこの表示ごと消える。
+ * 消されると前提が伝わらなくなるので、閉じられても消せない形にしている。
  */
 function DemoNotice() {
   return (
-    <p className={styles.demoNotice}>
-      <strong>デモ用の画面です。</strong>
-      ログインの仕組みがまだ無いため、対象の企業を一覧から選ぶ形にしています。
-    </p>
+    <CollapsibleCard title="デモ用の画面です" dismissible={false}>
+      <p>
+        ログインの仕組みがまだ無いため、対象の企業を一覧から選ぶ形にしています。
+      </p>
+    </CollapsibleCard>
   )
 }
 

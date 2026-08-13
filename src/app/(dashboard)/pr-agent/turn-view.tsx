@@ -1,4 +1,16 @@
+import { type ReactNode } from 'react'
+
 import type { Block, Turn } from '@/feature/pr-agent'
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  Icon,
+  Stack,
+  StatGrid,
+  StatTile,
+  cx,
+} from '@/shared/ui'
 
 import { blank, formatDate, formatNumber, formatPercent } from './format'
 import styles from './pr-agent.module.css'
@@ -9,6 +21,9 @@ import styles from './pr-agent.module.css'
  * `Block` は判別可能ユニオンなので `kind` ごとに描き分け、`switch` の網羅性は
  * 型で担保する (新しい block が増えたらコンパイルエラーになる)。
  * 文章 (`narrative`) は blocks の言い換えでしかないため、数字は必ず blocks 側から出す。
+ *
+ * 見た目は `@/shared/ui` の部品に寄せ、CSS Module に残すのは
+ * 部品では表せないもの (データ表・自社の行の強調など) だけにしている。
  */
 
 type BlockOf<K extends Block['kind']> = Extract<Block, { kind: K }>
@@ -32,6 +47,11 @@ function findPeriod(turn: Turn): PeriodBlock | undefined {
   })
 }
 
+/** 値が無いときに単位まで出すと「— 本」になるので、単位ごと落とす */
+function unitOf(value: number | null, unit: string): string | undefined {
+  return value === null ? undefined : unit
+}
+
 export function TurnView({
   turn,
   hitCurveFallback,
@@ -51,40 +71,67 @@ export function TurnView({
   })
 
   return (
-    <article className={styles.turn}>
-      <Narrative narrative={turn.narrative} />
-      {turn.blocks.map((block, index) => {
-        if (block.kind === 'hit_curve' || block.kind === 'period') {
-          return index === pairAt ? (
-            <CurvePair
-              key="curves"
-              hitCurve={hitCurve}
-              period={period}
-              borrowed={ownHitCurve === undefined}
-            />
-          ) : null
-        }
-        return <BlockView key={`${block.kind}-${index}`} block={block} />
-      })}
+    <article>
+      <Stack gap={4}>
+        <Narrative narrative={turn.narrative} />
+        {turn.blocks.map((block, index) => {
+          if (block.kind === 'hit_curve' || block.kind === 'period') {
+            return index === pairAt ? (
+              <CurvePair
+                key="curves"
+                hitCurve={hitCurve}
+                period={period}
+                borrowed={ownHitCurve === undefined}
+              />
+            ) : null
+          }
+          return <BlockView key={`${block.kind}-${index}`} block={block} />
+        })}
+      </Stack>
     </article>
   )
 }
 
+/** エージェントの発話。数値を持たないので、下地の色だけで提示物と区別する */
 function Narrative({ narrative }: { narrative: Turn['narrative'] }) {
   // narrative のキーと block の kind の対応は契約に無いので、並べ替えずにそのまま出す
   const paragraphs = Object.entries(narrative.text)
   if (paragraphs.length === 0) return null
 
   return (
-    <div className={styles.narrative}>
-      {paragraphs.map(([key, text]) => (
-        <p key={key}>{text}</p>
-      ))}
-      {narrative.source === 'template' ? (
-        // LLM が使えずテンプレのまま出ている状態。利用者向けの情報ではないので控えめに
-        <p className={styles.devNote}>文章は言い換え前のテンプレートです</p>
-      ) : null}
-    </div>
+    <Card>
+      <CardBody standalone>
+        <Stack gap={3}>
+          {paragraphs.map(([key, text]) => (
+            <p key={key}>{text}</p>
+          ))}
+          {narrative.source === 'template' ? (
+            // LLM が使えずテンプレのまま出ている状態。利用者向けの情報ではないので控えめに
+            <p className={styles.devNote}>文章は言い換え前のテンプレートです</p>
+          ) : null}
+        </Stack>
+      </CardBody>
+    </Card>
+  )
+}
+
+/** block 1 つ分の器。見出しと内側の余白の付き方を全 block で揃える */
+function BlockCard({
+  title,
+  className,
+  children,
+}: {
+  title: ReactNode
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <Card tone="outlined" className={className}>
+      <CardHeader title={title} />
+      <CardBody>
+        <Stack gap={3}>{children}</Stack>
+      </CardBody>
+    </Card>
   )
 }
 
@@ -137,26 +184,26 @@ function CurvePair({
 
 function Diagnosis({ block }: { block: BlockOf<'diagnosis'> }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
-      <dl className={styles.facts}>
-        <div>
-          <dt>配信本数</dt>
-          <dd>{formatNumber(block.totalReleases)}本</dd>
-        </div>
-        <div>
-          <dt>最後の配信</dt>
-          <dd>{formatDate(block.lastReleasedAt)}</dd>
-        </div>
-        <div>
-          <dt>止まっている期間</dt>
-          <dd>
-            {block.stoppedMonths === null
-              ? blank
-              : `${formatNumber(block.stoppedMonths)}か月`}
-          </dd>
-        </div>
-      </dl>
+    <BlockCard title={block.title}>
+      <StatGrid>
+        <StatTile
+          label="配信本数"
+          value={formatNumber(block.totalReleases)}
+          unit="本"
+          icon="send"
+        />
+        <StatTile
+          label="最後の配信"
+          value={formatDate(block.lastReleasedAt)}
+          icon="document"
+        />
+        <StatTile
+          label="止まっている期間"
+          value={formatNumber(block.stoppedMonths)}
+          unit={unitOf(block.stoppedMonths, 'か月')}
+          icon="chart"
+        />
+      </StatGrid>
 
       {block.recent.length > 0 ? (
         <div className={styles.tableWrap}>
@@ -187,7 +234,7 @@ function Diagnosis({ block }: { block: BlockOf<'diagnosis'> }) {
           </table>
         </div>
       ) : null}
-    </section>
+    </BlockCard>
   )
 }
 
@@ -199,12 +246,16 @@ function HitCurve({
   borrowed?: boolean
 }) {
   return (
-    <section className={`${styles.block} ${styles.lead}`}>
-      <h3 className={styles.blockTitle}>
-        {block.title}
-        {borrowed ? <span className={styles.tag}>再掲</span> : null}
-      </h3>
-
+    // 当たり率カーブは対話全体の主役なので、枠を強めて他のカードと区別する
+    <BlockCard
+      className={styles.lead}
+      title={
+        <>
+          {block.title}
+          {borrowed ? <span className={styles.tag}>再掲</span> : null}
+        </>
+      }
+    >
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <caption>配信本数で分けたときの当たり率</caption>
@@ -236,7 +287,7 @@ function HitCurve({
                   <td className={styles.num}>
                     {formatNumber(bucket.companies)}社
                   </td>
-                  <td className={`${styles.num} ${styles.headline}`}>
+                  <td className={cx(styles.num, styles.headline)}>
                     {formatPercent(bucket.hitPct)}
                   </td>
                 </tr>
@@ -253,7 +304,7 @@ function HitCurve({
         {formatNumber(block.curve.totalCompanies)}社。
       </p>
       <EvidenceView evidence={block.evidence} />
-    </section>
+    </BlockCard>
   )
 }
 
@@ -274,8 +325,7 @@ function EvidenceView({ evidence }: { evidence: HitCurveBlock['evidence'] }) {
 
 function Period({ block }: { block: PeriodBlock }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
+    <BlockCard title={block.title}>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <caption>初回配信からの経過期間で分けたときの当たり率</caption>
@@ -304,7 +354,7 @@ function Period({ block }: { block: PeriodBlock }) {
               <tr key={row.months}>
                 <th scope="row">{formatNumber(row.months)}か月</th>
                 <td className={styles.num}>{formatNumber(row.companies)}社</td>
-                <td className={`${styles.num} ${styles.headline}`}>
+                <td className={cx(styles.num, styles.headline)}>
                   {formatPercent(row.hitPct)}
                 </td>
                 <td className={styles.num}>
@@ -320,41 +370,41 @@ function Period({ block }: { block: PeriodBlock }) {
       <p className={styles.note}>
         左の本数別と同じ「当たり率」を、経過期間で分け直したもの。
       </p>
-    </section>
+    </BlockCard>
   )
 }
 
 function Resume({ block }: { block: BlockOf<'resume'> }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
-      <dl className={styles.facts}>
-        <div>
-          <dt>休止前の配信本数</dt>
-          <dd>
-            {formatNumber(block.segment.fromN)}〜
-            {formatNumber(block.segment.toN)}本
-          </dd>
-        </div>
-        <div>
-          <dt>該当する企業</dt>
-          <dd>{formatNumber(block.segment.companies)}社</dd>
-        </div>
-        <div>
-          <dt>再開前の当たり率</dt>
-          <dd>{formatPercent(block.segment.hitBeforePct)}</dd>
-        </div>
-        <div>
-          <dt>再開後の当たり率</dt>
-          <dd className={styles.headline}>
-            {formatPercent(block.segment.hitAfterPct)}
-          </dd>
-        </div>
-        <div>
-          <dt>再開後に足した本数の中央値</dt>
-          <dd>{formatNumber(block.segment.addedP50)}本</dd>
-        </div>
-      </dl>
+    <BlockCard title={block.title}>
+      <StatGrid>
+        <StatTile
+          label="休止前の配信本数"
+          value={`${formatNumber(block.segment.fromN)}〜${formatNumber(block.segment.toN)}`}
+          unit="本"
+        />
+        <StatTile
+          label="該当する企業"
+          value={formatNumber(block.segment.companies)}
+          unit="社"
+          icon="building"
+        />
+        <StatTile
+          label="再開前の当たり率"
+          value={formatPercent(block.segment.hitBeforePct)}
+        />
+        <StatTile
+          label="再開後の当たり率"
+          value={formatPercent(block.segment.hitAfterPct)}
+          icon="chart"
+        />
+        <StatTile
+          label="再開後に足した本数の中央値"
+          value={formatNumber(block.segment.addedP50)}
+          unit="本"
+          icon="send"
+        />
+      </StatGrid>
 
       {block.gaps.length > 0 ? (
         <div className={styles.tableWrap}>
@@ -385,7 +435,7 @@ function Resume({ block }: { block: BlockOf<'resume'> }) {
       <p className={styles.note}>
         休止から再開した企業は全体で{formatNumber(block.totalResumed)}社。
       </p>
-    </section>
+    </BlockCard>
   )
 }
 
@@ -398,9 +448,7 @@ function UnusedFeatures({ block }: { block: BlockOf<'unused_features'> }) {
   const unmeasured = block.items.filter((item) => item.impact === null)
 
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
-
+    <BlockCard title={block.title}>
       {measured.length > 0 ? (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
@@ -427,7 +475,7 @@ function UnusedFeatures({ block }: { block: BlockOf<'unused_features'> }) {
                 <tr key={item.key}>
                   <th scope="row">{item.label}</th>
                   <td>{item.detected}</td>
-                  <td className={`${styles.num} ${styles.headline}`}>
+                  <td className={cx(styles.num, styles.headline)}>
                     {formatPercent(item.impact.withPct)}
                   </td>
                   <td className={styles.num}>
@@ -448,8 +496,8 @@ function UnusedFeatures({ block }: { block: BlockOf<'unused_features'> }) {
       ) : null}
 
       {unmeasured.length > 0 ? (
-        <div className={styles.subBlock}>
-          <h4 className={styles.subTitle}>設定できる項目</h4>
+        <Stack gap={2}>
+          <h3>設定できる項目</h3>
           <ul className={styles.list}>
             {unmeasured.map((item) => (
               <li key={item.key}>
@@ -461,26 +509,28 @@ function UnusedFeatures({ block }: { block: BlockOf<'unused_features'> }) {
           <p className={styles.note}>
             当たり率の差は測れていない項目。設定できる、というところまで。
           </p>
-        </div>
+        </Stack>
       ) : null}
-    </section>
+    </BlockCard>
   )
 }
 
 function Outlook({ block }: { block: BlockOf<'outlook'> }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
-      <dl className={styles.facts}>
-        <div>
-          <dt>今の配信本数</dt>
-          <dd>{formatNumber(block.now)}本</dd>
-        </div>
-        <div>
-          <dt>今いる本数帯の当たり率</dt>
-          <dd>{formatPercent(block.currentPct)}</dd>
-        </div>
-      </dl>
+    <BlockCard title={block.title}>
+      <StatGrid>
+        <StatTile
+          label="今の配信本数"
+          value={formatNumber(block.now)}
+          unit="本"
+          icon="send"
+        />
+        <StatTile
+          label="今いる本数帯の当たり率"
+          value={formatPercent(block.currentPct)}
+          icon="chart"
+        />
+      </StatGrid>
 
       {block.steps.length > 0 ? (
         <div className={styles.tableWrap}>
@@ -508,7 +558,7 @@ function Outlook({ block }: { block: BlockOf<'outlook'> }) {
                 <tr key={step.target}>
                   <th scope="row">{formatNumber(step.target)}本</th>
                   <td className={styles.num}>{formatNumber(step.need)}本</td>
-                  <td className={`${styles.num} ${styles.headline}`}>
+                  <td className={cx(styles.num, styles.headline)}>
                     {formatPercent(step.hitPct)}
                   </td>
                   <td className={styles.num}>
@@ -532,14 +582,13 @@ function Outlook({ block }: { block: BlockOf<'outlook'> }) {
           中央値は{formatNumber(block.resumeTarget.addedP50)}本。
         </p>
       ) : null}
-    </section>
+    </BlockCard>
   )
 }
 
 function Trends({ block }: { block: BlockOf<'trends'> }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
+    <BlockCard title={block.title}>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <caption>リリース種別ごとの PV</caption>
@@ -569,14 +618,13 @@ function Trends({ block }: { block: BlockOf<'trends'> }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </BlockCard>
   )
 }
 
 function Features({ block }: { block: BlockOf<'features'> }) {
   return (
-    <section className={styles.block}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
+    <BlockCard title={block.title}>
       <ul className={styles.list}>
         {block.items.map((item) => (
           <li key={item.key}>
@@ -585,30 +633,37 @@ function Features({ block }: { block: BlockOf<'features'> }) {
           </li>
         ))}
       </ul>
+
       {block.articles.length > 0 ? (
-        <div className={styles.subBlock}>
-          <h4 className={styles.subTitle}>読んでおくとよい記事</h4>
+        <Stack gap={2}>
+          <h3>読んでおくとよい記事</h3>
           <ul className={styles.list}>
             {block.articles.map((article) => (
               <li key={article.url}>
-                <a href={article.url} target="_blank" rel="noreferrer">
+                <a
+                  href={article.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={styles.link}
+                >
                   {article.title}
+                  <Icon name="external" size={14} />
                 </a>
               </li>
             ))}
           </ul>
-        </div>
+        </Stack>
       ) : null}
-    </section>
+    </BlockCard>
   )
 }
 
 function NextStep({ block }: { block: BlockOf<'next_step'> }) {
   return (
-    <section className={`${styles.block} ${styles.nextStep}`}>
-      <h3 className={styles.blockTitle}>{block.title}</h3>
+    // 会話の結論。ここで終わりだと分かるよう、他の block とは別の装飾を付ける
+    <BlockCard title={block.title} className={styles.nextStep}>
       <p className={styles.action}>{block.action}</p>
       <p>{block.detail}</p>
-    </section>
+    </BlockCard>
   )
 }

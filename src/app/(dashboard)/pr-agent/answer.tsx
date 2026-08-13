@@ -1,4 +1,5 @@
 import type { Question, UserAnswer } from '@/feature/pr-agent'
+import { cx, Icon } from '@/shared/ui'
 
 import styles from './pr-agent.module.css'
 
@@ -28,10 +29,11 @@ export function AnswerBubble({
   pending?: boolean
 }) {
   return (
-    <p
-      className={pending ? `${styles.answer} ${styles.pending}` : styles.answer}
-    >
-      <span className={styles.answerRole}>あなた</span>
+    <p className={cx(styles.answer, pending && styles.pending)}>
+      <span className={styles.answerRole}>
+        <Icon name="account" size={14} />
+        あなた
+      </span>
       <span>{label}</span>
       {pending ? <span className={styles.answerState}>送信中…</span> : null}
     </p>

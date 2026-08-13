@@ -4,7 +4,9 @@ import { useRouter } from 'next/navigation'
 import { useOptimistic, useState, useTransition } from 'react'
 
 import type { Question, UserAnswer } from '@/feature/pr-agent'
+import { Button, Card, CardBody, Stack } from '@/shared/ui'
 
+import { Alert } from './alert'
 import { AnswerBubble } from './answer'
 import styles from './pr-agent.module.css'
 
@@ -68,76 +70,86 @@ export function ConversationRunner({
   }
 
   return (
-    <div className={styles.runner}>
+    <Stack gap={4}>
       {sendingLabel === null ? null : (
         <AnswerBubble label={sendingLabel} pending />
       )}
 
-      {error === null ? null : (
-        <p className={styles.error} role="alert">
-          {error}
-        </p>
-      )}
+      {error === null ? null : <Alert message={error} />}
 
       {question === null ? (
         <p className={styles.terminal}>ここまでです。</p>
       ) : (
-        <form
-          className={styles.question}
-          onSubmit={(event) => {
-            event.preventDefault()
-            const free = text.trim()
-            if (free === '') return
-            send({ questionId: question.id, choiceId: null, text: free }, free)
-          }}
-        >
-          <p className={styles.questionText}>{question.text}</p>
-
-          <ul className={styles.choices}>
-            {question.options.map((option) => (
-              <li key={option.id}>
-                <button
-                  type="button"
-                  className={styles.choice}
-                  disabled={isPending}
-                  onClick={() => {
-                    send(
-                      {
-                        questionId: question.id,
-                        choiceId: option.id,
-                        text: null,
-                      },
-                      option.label,
-                    )
-                  }}
-                >
-                  {option.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <div className={styles.freeText}>
-            <label htmlFor="pr-agent-other">その他</label>
-            <input
-              id="pr-agent-other"
-              type="text"
-              value={text}
-              disabled={isPending}
-              placeholder="選択肢に無いことはこちらへ"
-              onChange={(event) => setText(event.target.value)}
-            />
-            <button
-              type="submit"
-              className={styles.submit}
-              disabled={isPending || text.trim() === ''}
+        // 1 ターンに質問は 1 つ (設計 §1)。選択肢と「その他」の自由入力で 1 つの答えを受ける
+        <Card tone="outlined">
+          <CardBody standalone>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                const free = text.trim()
+                if (free === '') return
+                send(
+                  { questionId: question.id, choiceId: null, text: free },
+                  free,
+                )
+              }}
             >
-              送信
-            </button>
-          </div>
-        </form>
+              <Stack gap={4}>
+                <p className={styles.questionText}>{question.text}</p>
+
+                <ul className={styles.choices}>
+                  {question.options.map((option) => (
+                    <li key={option.id}>
+                      <Button
+                        disabled={isPending}
+                        onClick={() => {
+                          send(
+                            {
+                              questionId: question.id,
+                              choiceId: option.id,
+                              text: null,
+                            },
+                            option.label,
+                          )
+                        }}
+                      >
+                        {option.label}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className={styles.freeText}>
+                  <label
+                    htmlFor="pr-agent-other"
+                    className={styles.freeTextLabel}
+                  >
+                    その他
+                  </label>
+                  <input
+                    id="pr-agent-other"
+                    type="text"
+                    className={styles.input}
+                    value={text}
+                    disabled={isPending}
+                    placeholder="選択肢に無いことはこちらへ"
+                    onChange={(event) => setText(event.target.value)}
+                  />
+                  <Button
+                    type="submit"
+                    variant="solid"
+                    icon="send"
+                    disabled={isPending || text.trim() === ''}
+                  >
+                    送信
+                  </Button>
+                </div>
+              </Stack>
+            </form>
+          </CardBody>
+        </Card>
       )}
-    </div>
+    </Stack>
   )
 }
 
