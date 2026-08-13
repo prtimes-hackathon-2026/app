@@ -2,7 +2,7 @@ import { type ReactNode } from 'react'
 import { cx } from '../cx'
 import styles from './card.module.css'
 
-export type CardTone = 'muted' | 'outlined'
+export type CardTone = 'muted' | 'outlined' | 'accent'
 
 type CardProps = {
   tone?: CardTone

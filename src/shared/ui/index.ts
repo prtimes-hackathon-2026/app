@@ -16,6 +16,7 @@ export { IconButton } from './button/icon-button'
 
 export { Card, CardBody, CardHeader, type CardTone } from './card/card'
 export { CollapsibleCard } from './card/collapsible-card'
+export { Callout } from './callout/callout'
 
 export { Stack } from './layout/stack'
 

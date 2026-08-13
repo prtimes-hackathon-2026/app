@@ -13,6 +13,12 @@
   border: 1px solid var(--c-border);
 }
 
+/* 目を引かせたい箱。並んだお知らせ枠の中で 1 つだけ浮かせる用 */
+.accent {
+  background: var(--c-primary-soft);
+  border: 1px solid var(--c-primary-border);
+}
+
 .header {
   display: flex;
   gap: var(--s-4);

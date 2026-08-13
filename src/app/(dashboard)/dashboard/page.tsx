@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { type ReactNode } from 'react'
 import {
+  Callout,
   Card,
   CardBody,
   CardHeader,
@@ -98,6 +99,18 @@ export default function DashboardPage() {
       <PageHeader title="ダッシュボード" />
 
       <Stack gap={4}>
+        {/* 久しぶりに来た人を目的の再確認に戻す導線。
+            本来は「最終アクセスから 1 年以上」などで出し分けたいが、
+            最終アクセス日時を持つ仕組みがまだ無いので今は常に表示している。
+            条件が用意できたらこの位置で出し分ける */}
+        <Callout
+          icon="compass"
+          title="お久しぶりです"
+          action={{ label: '目的を再確認する', href: '/purpose' }}
+        >
+          <p>PR TIMES を使う目的を、もう一度確認しませんか。</p>
+        </Callout>
+
         {notices.map((notice) => (
           <CollapsibleCard
             key={notice.id}

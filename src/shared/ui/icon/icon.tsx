@@ -84,6 +84,12 @@ const icons = {
       <path d="M19 14.5l2.5 2.5-4.6 4.6-2.9.4.4-2.9z" />
     </>
   ),
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <polygon points="15.6 8.4 13.4 13.4 8.4 15.6 10.6 10.6 15.6 8.4" />
+    </>
+  ),
   chevronRight: <polyline points="9 18 15 12 9 6" />,
   chevronDown: <polyline points="6 9.5 12 15.5 18 9.5" />,
   chevronUp: <polyline points="6 14.5 12 8.5 18 14.5" />,
