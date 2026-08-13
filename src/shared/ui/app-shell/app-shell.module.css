@@ -1,0 +1,71 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+}
+
+.sidebar {
+  position: sticky;
+  top: var(--header-h);
+  z-index: 20;
+  flex: none;
+  height: calc(100dvh - var(--header-h));
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* サイドバーの開閉とパンくずを載せる細い帯 */
+.topbar {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  min-height: 44px;
+  padding: var(--s-2) var(--s-5);
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  padding: var(--s-5) var(--s-6) var(--s-10);
+}
+
+.backdrop {
+  position: fixed;
+  inset: var(--header-h) 0 0;
+  z-index: 15;
+  background: var(--c-backdrop);
+  border: none;
+  border-radius: 0;
+}
+
+/* 画面が狭いときはサイドバーを覆い被せる引き出しにする */
+@media (max-width: 899px) {
+  .sidebar {
+    position: fixed;
+    top: var(--header-h);
+    bottom: 0;
+    left: 0;
+    height: auto;
+    box-shadow: var(--shadow-md);
+  }
+
+  .navClosed .sidebar {
+    display: none;
+  }
+
+  .main {
+    padding-inline: var(--s-4);
+  }
+}

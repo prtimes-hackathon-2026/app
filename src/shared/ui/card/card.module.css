@@ -1,0 +1,44 @@
+.card {
+  border-radius: var(--r-lg);
+}
+
+/* ダッシュボードのお知らせ枠。薄いグレーの下地だけで枠線は持たない */
+.muted {
+  background: var(--c-surface-muted);
+}
+
+/* 白地に枠線。一覧やフォームなど内容量の多い箱向け */
+.outlined {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+}
+
+.header {
+  display: flex;
+  gap: var(--s-4);
+  align-items: center;
+  justify-content: space-between;
+  min-height: 56px;
+  padding: var(--s-3) var(--s-5);
+}
+
+.title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: var(--s-1);
+  align-items: center;
+}
+
+.body {
+  padding: 0 var(--s-5) var(--s-5);
+}
+
+/* ヘッダーを持たないカードは上下対称に余白を取る */
+.bodyOnly {
+  padding-top: var(--s-5);
+}
