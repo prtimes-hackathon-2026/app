@@ -138,6 +138,8 @@ const eslintConfig = [
       'node_modules/**',
       'next-env.d.ts',
       'drizzle/**/migrations/**',
+      // 別アーキテクチャの試作。この設定 (Next.js 前提) の対象外にする
+      'voice-agent/**',
     ],
   },
   ...nextCoreWebVitals,
