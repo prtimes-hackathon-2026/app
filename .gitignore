@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# Vite / tooling caches
+.vite/
+*.tsbuildinfo
+
+# ローカル環境変数（.env.example はコミットする）
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
