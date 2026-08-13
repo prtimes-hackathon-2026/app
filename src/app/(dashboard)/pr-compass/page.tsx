@@ -5,9 +5,170 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '@/shared/ui'
 import styles from './page.module.css'
 
+type Block =
+  | { type: 'stat'; items: { label: string; value: string }[] }
+  | {
+      type: 'bars'
+      title: string
+      unit: string
+      items: { label: string; value: number }[]
+      highlight?: string
+      note?: string
+    }
+  | {
+      type: 'compare'
+      title: string
+      left: { label: string; value: string }
+      right: { label: string; value: string }
+      note?: string
+    }
+  | {
+      type: 'table'
+      title: string
+      columns: string[]
+      rows: string[][]
+      note?: string
+    }
+  | { type: 'goal'; headline: string; detail: string }
+  | {
+      type: 'checklist'
+      title: string
+      items: { label: string; withPct?: number; withoutPct?: number }[]
+      note?: string
+    }
+
 type Message = {
   role: 'user' | 'assistant'
   content: string
+  blocks?: Block[]
+}
+
+/** 数値は本文ではなくここから描く。言い換えで揺れないようにするため */
+function Blocks({ blocks }: { blocks?: Block[] }) {
+  if (!blocks?.length) return null
+  const max = (items: { value: number }[]) =>
+    Math.max(...items.map((i) => i.value), 1)
+
+  return (
+    <div className={styles.blocks}>
+      {blocks.map((b, i) => {
+        if (b.type === 'stat')
+          return (
+            <div key={i} className={styles.statRow}>
+              {b.items.map((it) => (
+                <div key={it.label} className={styles.stat}>
+                  <div className={styles.statValue}>{it.value}</div>
+                  <div className={styles.statLabel}>{it.label}</div>
+                </div>
+              ))}
+            </div>
+          )
+
+        if (b.type === 'goal')
+          return (
+            <div key={i} className={styles.goal}>
+              <div className={styles.goalHeadline}>{b.headline}</div>
+              <div className={styles.goalDetail}>{b.detail}</div>
+            </div>
+          )
+
+        if (b.type === 'bars')
+          return (
+            <div key={i} className={styles.card}>
+              <div className={styles.cardTitle}>{b.title}</div>
+              <div className={styles.bars}>
+                {b.items.map((it) => (
+                  <div key={it.label} className={styles.barCol}>
+                    <span className={styles.barValue}>
+                      {it.value}
+                      {b.unit}
+                    </span>
+                    <div
+                      className={`${styles.bar} ${it.label === b.highlight ? styles.barHi : ''}`}
+                      style={{
+                        height: `${Math.max((it.value / max(b.items)) * 100, 4)}%`,
+                      }}
+                    />
+                    <span className={styles.barLabel}>{it.label}</span>
+                  </div>
+                ))}
+              </div>
+              {b.note && <p className={styles.cardNote}>{b.note}</p>}
+            </div>
+          )
+
+        if (b.type === 'compare')
+          return (
+            <div key={i} className={styles.card}>
+              <div className={styles.cardTitle}>{b.title}</div>
+              <div className={styles.compare}>
+                <div className={styles.compareSide}>
+                  <div className={styles.compareValue}>{b.left.value}</div>
+                  <div className={styles.compareLabel}>{b.left.label}</div>
+                </div>
+                <div className={styles.compareArrow}>→</div>
+                <div className={styles.compareSide}>
+                  <div
+                    className={`${styles.compareValue} ${styles.compareValueHi}`}
+                  >
+                    {b.right.value}
+                  </div>
+                  <div className={styles.compareLabel}>{b.right.label}</div>
+                </div>
+              </div>
+              {b.note && <p className={styles.cardNote}>{b.note}</p>}
+            </div>
+          )
+
+        if (b.type === 'table')
+          return (
+            <div key={i} className={styles.card}>
+              <div className={styles.cardTitle}>{b.title}</div>
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      {b.columns.map((c) => (
+                        <th key={c}>{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.rows.map((r, ri) => (
+                      <tr key={ri}>
+                        {r.map((c, ci) => (
+                          <td key={ci}>{c}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {b.note && <p className={styles.cardNote}>{b.note}</p>}
+            </div>
+          )
+
+        return (
+          <div key={i} className={styles.card}>
+            <div className={styles.cardTitle}>{b.title}</div>
+            <ul className={styles.checklist}>
+              {b.items.map((it) => (
+                <li key={it.label}>
+                  <span className={styles.checkLabel}>{it.label}</span>
+                  {it.withPct !== undefined && it.withoutPct !== undefined && (
+                    <span className={styles.checkDiff}>
+                      使っている {it.withPct}% / 使っていない {it.withoutPct}%
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {b.note && <p className={styles.cardNote}>{b.note}</p>}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 type Phase = 'discovery' | 'free_talk' | 'proposal' | 'complete'
@@ -108,13 +269,22 @@ export default function PrCompassPage() {
       body: JSON.stringify({ messages: [] }),
     })
       .then((r) => r.json())
-      .then(({ content, phase: p, memo: m, suggestions: s, speech: sp }) => {
-        setMessages([{ role: 'assistant', content }])
-        if (p) setPhase(p as Phase)
-        if (m) setMemo(m)
-        setSuggestions(Array.isArray(s) ? s : [])
-        setSpeech(sp ?? '')
-      })
+      .then(
+        ({
+          content,
+          phase: p,
+          memo: m,
+          suggestions: s,
+          speech: sp,
+          blocks,
+        }) => {
+          setMessages([{ role: 'assistant', content, blocks }])
+          if (p) setPhase(p as Phase)
+          if (m) setMemo(m)
+          setSuggestions(Array.isArray(s) ? s : [])
+          setSpeech(sp ?? '')
+        },
+      )
       .catch(() => {
         setMessages([
           {
@@ -273,6 +443,7 @@ export default function PrCompassPage() {
                 {m.role === 'assistant' ? 'PR TIMES 広報伴走AI' : 'あなた'}
               </p>
               <div className={styles.bubbleInner}>{m.content}</div>
+              {m.role === 'assistant' && <Blocks blocks={m.blocks} />}
             </div>
           ))}
 

@@ -7,6 +7,7 @@ import {
   type Reason,
   type Step,
 } from '../domain/conversation'
+import type { Block } from '../domain/block'
 import type { Insight } from '../domain/insight'
 import type { InsightRepository } from '../domain/insight-repository'
 import type { Classifier, Narrator } from '../domain/language'
@@ -44,6 +45,8 @@ export type AdvanceResult = {
    * 頭の2文だけを耳向けに整形したもの。詳細は画面で読んでもらう。
    */
   speech: string
+  /** 数値を描く部品。本文が言い換えで揺れても、ここの数字は変わらない */
+  blocks: readonly Block[]
 }
 
 /**
@@ -117,6 +120,7 @@ export function advanceConversation(deps: {
         memo,
         suggestions: [],
         speech: '',
+        blocks: [],
       }
     }
 
@@ -132,7 +136,7 @@ export function advanceConversation(deps: {
       finished: false,
     }
 
-    const { draft, facts, suggestions } = await route(
+    const { draft, facts, suggestions, blocks } = await route(
       step,
       text,
       insight,
@@ -153,6 +157,7 @@ export function advanceConversation(deps: {
       content: spoken,
       suggestions: suggestions ?? [],
       speech: toScript(spoken),
+      blocks: blocks ?? [],
       // 書きに行くか、人に渡すかが決まったときだけ閉じる。
       // 断られただけで閉じてしまうと、粘る前に入力欄が消える
       phase: state.finished ? 'complete' : phaseOf(step),

@@ -6,6 +6,7 @@ import {
   type Interest,
   type Reason,
 } from '../domain/conversation'
+import type { Block } from '../domain/block'
 import { bucketOf, type Insight } from '../domain/insight'
 
 /**
@@ -19,6 +20,8 @@ export type Draft = {
   facts: Record<string, string>
   /** 本文に添えるサジェスト。入力は縛らない */
   suggestions?: readonly string[]
+  /** 数値を描く部品。本文とは別に画面へ渡す */
+  blocks?: readonly Block[]
 }
 
 const pct = (n: number) => `${n}%`
@@ -98,9 +101,47 @@ export function composeDiagnosis(insight: Insight): Draft {
   }
   if (lastTitle) facts['前回のリリース'] = lastTitle
 
+  const blocks: Block[] = [
+    {
+      type: 'stat',
+      items: [
+        { label: 'これまでの配信', value: `${d.totalReleases}本` },
+        {
+          label: '最終配信からの経過',
+          value: d.stoppedMonths !== null ? `${d.stoppedMonths}か月` : '—',
+        },
+      ],
+    },
+  ]
+
+  if (hitCurve) {
+    blocks.push({
+      type: 'bars',
+      title: '配信本数と、手応えのある結果に届いた企業の割合',
+      unit: '%',
+      items: hitCurve.buckets.map((b) => ({
+        label: b.bucket,
+        value: b.hitPct,
+      })),
+      highlight: bucketOf(d.totalReleases),
+      note: `${d.industryName} ${jp(hitCurve.totalCompanies)}社。「手応えのある結果」＝1本でも ${hitCurve.thresholdPv}PV以上（業種内の上位10%）に届いたこと`,
+    })
+  }
+
+  if (resume) {
+    blocks.push({
+      type: 'compare',
+      title: '同じところで止まってから再開した企業',
+      left: { label: '再開前', value: pct(resume.hitBeforePct) },
+      right: { label: '再開後', value: pct(resume.hitAfterPct) },
+      note: `${jp(resume.companies)}社。追加した本数は中央値で${resume.addedMedian}本`,
+    })
+  }
+
   return {
     draft: lines.join('\n\n'),
     facts,
+    blocks,
     suggestions: Object.values(REASON_SUGGESTIONS),
   }
 }
@@ -173,9 +214,33 @@ export function composeReason(insight: Insight, reason: Reason): Draft {
 
   lines.push(`そのうえで、いま一番やりたいことはどれに近いですか。`)
 
+  const blocks: Block[] = []
+  if (worst) {
+    blocks.push({
+      type: 'compare',
+      title: `${worst.label}を使っているかどうか`,
+      left: { label: '使っていない', value: pct(worst.withoutPct) },
+      right: { label: '使っている', value: pct(worst.withPct) },
+      note: `${d.industryName} ${jp(worst.samples)}本の実績。差があるという事実で、使えば上がるという意味ではない`,
+    })
+  }
+  if (reason === 'none' && period.length) {
+    blocks.push({
+      type: 'table',
+      title: '時間をかけるだけでは上がらない',
+      columns: ['初回からの経過', '当たり率', '配信本数の中央値'],
+      rows: period.map((r) => [
+        `${r.months}か月`,
+        pct(r.hitPct),
+        `${r.releasesMedian}本`,
+      ]),
+    })
+  }
+
   return {
     draft: lines.join('\n\n'),
     facts,
+    blocks,
     suggestions: Object.values(INTEREST_SUGGESTIONS),
   }
 }
@@ -236,9 +301,49 @@ export function composeProposal(insight: Insight, interest: Interest): Draft {
     `この方向で進めてよさそうでしょうか。気になるところがあれば教えてください。`,
   )
 
+  const blocks: Block[] = [
+    {
+      type: 'goal',
+      headline: `あと${target}本`,
+      detail: resume
+        ? `同じところから再開した${jp(resume.companies)}社の中央値。ここまでで ${pct(resume.hitAfterPct)} が手応えのある結果に届いています`
+        : `月1本なら${target}か月、3か月に1本でも${target * 3}か月`,
+    },
+  ]
+
+  if (period.length) {
+    blocks.push({
+      type: 'table',
+      title: '時間をかけるだけでは上がらない',
+      columns: ['初回からの経過', '当たり率', '配信本数の中央値'],
+      rows: period.map((r) => [
+        `${r.months}か月`,
+        pct(r.hitPct),
+        `${r.releasesMedian}本`,
+      ]),
+      note: '中央値の企業は3年かけても数本しか出していない',
+    })
+  }
+
+  if (trends.length) {
+    blocks.push({
+      type: 'table',
+      title: 'どの種類のリリースが跳ねやすいか',
+      columns: ['種別', '跳ねたとき', '中央値', '件数'],
+      rows: trends.map((t) => [
+        t.name,
+        t.pvP90 !== null ? `${t.pvP90}PV` : '—',
+        t.pvP50 !== null ? `${t.pvP50}PV` : '—',
+        jp(t.n),
+      ]),
+      note: '中央値ではほとんど差がつかない。跳ねたときの水準で見る',
+    })
+  }
+
   return {
     draft: lines.join('\n\n'),
     facts,
+    blocks,
     suggestions: [
       'この方向で書いてみる',
       '書き方をもっと見たい',
@@ -280,6 +385,20 @@ export function composeWriteGuide(insight: Insight, interest: Interest): Draft {
       `${d.industryName}の実績なので、御社のリリースにもそのまま当てはまります。\n\n` +
       `書けたら教えてください。結果を見て、次の1本を一緒に決めます。${target}本までは伴走します。`,
     facts,
+    blocks: [
+      { type: 'goal', headline: `あと${target}本`, detail: 'まず1本目から' },
+      {
+        type: 'checklist',
+        title: '出す前に確認すること',
+        items: unused.map((u) => {
+          const l = levers.find((x) => x.key === u.key)
+          return l
+            ? { label: l.label, withPct: l.withPct, withoutPct: l.withoutPct }
+            : { label: u.label }
+        }),
+        note: `${d.industryName}の実績。「使うと上がる」ではなく「使っているリリースは差がある」という意味`,
+      },
+    ],
   }
 }
 
@@ -325,6 +444,19 @@ export function composeBossSheet(insight: Insight): Draft {
       `提案：まず${resume?.addedMedian ?? 3}本。月1本なら${resume?.addedMedian ?? 3}か月です。\n\n` +
       `主観は入れていないので、判断材料としてそのまま出せます。これで話は通りそうですか。`,
     facts,
+    blocks: [
+      {
+        type: 'stat',
+        items: [
+          ...(mine ? [{ label: '現在地', value: pct(mine.hitPct) }] : []),
+          ...(top ? [{ label: '続けた企業', value: pct(top.hitPct) }] : []),
+          ...(resume
+            ? [{ label: '再開後', value: pct(resume.hitAfterPct) }]
+            : []),
+          { label: '提案する目標', value: `あと${resume?.addedMedian ?? 3}本` },
+        ],
+      },
+    ],
   }
 }
 
@@ -354,7 +486,31 @@ export function composeDoubt(insight: Insight): Draft {
   }
 
   lines.push(`このうえで、どうされますか。`)
-  return { draft: lines.join('\n\n'), facts }
+
+  const blocks: Block[] = []
+  if (a) {
+    blocks.push({
+      type: 'table',
+      title: '3か月以内にどこまで届いたか',
+      columns: ['目標', '達成した企業'],
+      rows: [
+        ['1本でも50PV以上', `${a.pct50}%`],
+        ['1本でも200PV以上', `${a.pct200}%`],
+        ['1本でも1000PV以上', `${a.pct1000}%`],
+      ],
+      note: `${jp(a.companies)}社・平均${a.avgReleases}本。短期で大きく跳ねるのはほとんど起きていない`,
+    })
+  }
+  if (img) {
+    blocks.push({
+      type: 'compare',
+      title: `${img.label}を使い始めた前後（同じ企業の中で比較）`,
+      left: { label: '使う前', value: pct(img.withoutPct) },
+      right: { label: '使った後', value: pct(img.withPct) },
+    })
+  }
+
+  return { draft: lines.join('\n\n'), facts, blocks }
 }
 
 /** 断られるたびに引き出しを変える。同じ提案の言い換えを繰り返さない */
