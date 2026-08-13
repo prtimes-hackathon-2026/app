@@ -1,7 +1,4 @@
-import type {
-  Conversation,
-  ConversationTurn,
-} from '../domain/conversation'
+import type { Conversation, ConversationTurn } from '../domain/conversation'
 import type { ConversationRepository } from '../domain/conversation-repository'
 
 /**
