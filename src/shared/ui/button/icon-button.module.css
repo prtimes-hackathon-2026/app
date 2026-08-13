@@ -1,0 +1,39 @@
+.base {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text);
+  border-radius: var(--r-md);
+  transition:
+    background-color var(--transition),
+    color var(--transition);
+}
+
+.base:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.base:hover:not(:disabled) {
+  background: var(--c-surface-hover);
+}
+
+.sm {
+  width: 24px;
+  height: 24px;
+}
+
+.md {
+  width: 32px;
+  height: 32px;
+}
+
+.lg {
+  width: 40px;
+  height: 40px;
+}
+
+.muted {
+  color: var(--c-text-muted);
+}

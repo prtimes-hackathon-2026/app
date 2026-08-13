@@ -38,8 +38,8 @@ const layerBoundaries = [
   },
   {
     files: [
-      'src/feature/*/domain/**/*.ts',
-      'src/feature/*/application/**/*.ts',
+      'src/feature/*/domain/**/*.{ts,tsx}',
+      'src/feature/*/application/**/*.{ts,tsx}',
     ],
     rules: {
       'no-restricted-imports': [
@@ -70,7 +70,7 @@ const layerBoundaries = [
     },
   },
   {
-    files: ['src/feature/**/*.ts'],
+    files: ['src/feature/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -91,7 +91,7 @@ const layerBoundaries = [
     },
   },
   {
-    files: ['src/external/**/*.ts'],
+    files: ['src/external/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -107,7 +107,7 @@ const layerBoundaries = [
     },
   },
   {
-    files: ['src/shared/**/*.ts'],
+    files: ['src/shared/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',

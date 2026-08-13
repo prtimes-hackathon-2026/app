@@ -1,0 +1,150 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  gap: var(--s-5);
+  align-items: center;
+  height: var(--header-h);
+  padding-inline: var(--s-5);
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.brand {
+  flex: none;
+  color: var(--c-text);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+/* 中央の主要導線 */
+.actions {
+  display: flex;
+  flex: 1;
+  gap: var(--s-3);
+  justify-content: center;
+}
+
+.right {
+  display: flex;
+  flex: none;
+  gap: var(--s-4);
+  align-items: center;
+}
+
+/* --- サポート窓口 ------------------------------------------------------ */
+.support {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  align-items: stretch;
+}
+
+.supportLabel {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.supportLabel::before,
+.supportLabel::after {
+  flex: 1;
+  height: 1px;
+  background: var(--c-border-strong);
+  content: '';
+}
+
+.supportBody {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+}
+
+.tel {
+  display: flex;
+  gap: var(--s-1);
+  align-items: center;
+  color: var(--c-text);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
+.tel:hover {
+  text-decoration: none;
+}
+
+/* --- アカウント -------------------------------------------------------- */
+.account {
+  display: flex;
+  gap: var(--s-3);
+  align-items: center;
+  color: var(--c-text);
+}
+
+.account:hover {
+  text-decoration: none;
+}
+
+.accountText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  text-align: right;
+}
+
+.accountName {
+  font-weight: var(--fw-bold);
+}
+
+.accountMeta {
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.avatar {
+  color: var(--c-text-muted);
+}
+
+/* --- 画面幅に応じて優先度の低いものから落とす -------------------------- */
+@media (max-width: 1279px) {
+  .support {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  .actions {
+    justify-content: flex-end;
+  }
+
+  .accountText {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .actions {
+    display: none;
+  }
+
+  .header {
+    justify-content: space-between;
+    padding-inline: var(--s-3);
+  }
+
+  .brand {
+    font-size: var(--fs-xl);
+  }
+}

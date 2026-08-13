@@ -1,0 +1,12 @@
+.body {
+  padding-top: 0;
+}
+
+.text > * + * {
+  margin-top: var(--s-3);
+}
+
+.note {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}

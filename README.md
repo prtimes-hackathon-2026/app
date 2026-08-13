@@ -1,14 +1,15 @@
 # app
 
-Next.js (App Router) の API サーバー。画面は持たず、ルーティング・ドメイン実装・外部接続を
-レイヤーで分離した骨組みだけを用意している。
+Next.js (App Router) のアプリケーション。ルーティング・ドメイン実装・外部接続を
+レイヤーで分離した骨組みと、管理画面の共通レイアウトを用意している。
 
 ## ディレクトリ構成
 
 ```
 src/
 ├── app/                     ルーティングと HTTP 境界だけ。ビジネスロジックを置かない
-│   └── api/health/route.ts
+│   ├── api/health/route.ts
+│   └── (dashboard)/         管理画面。AppShell を共有するルートグループ
 ├── feature/                 ドメインごとの縦割り実装
 │   ├── agents/
 │   │   ├── domain/          型とポート(interface)。フレームワーク・ORM 非依存
@@ -23,7 +24,9 @@ src/
 │       ├── app/             このアプリが所有する DB (AWS RDS)
 │       └── stats/           統計情報用の外部 PostgreSQL (参照専用)
 └── shared/                  横断的な部品。他レイヤーに依存しない
-    └── env.ts               環境変数の検証 (zod)
+    ├── env.ts               環境変数の検証 (zod)
+    ├── app-config.ts        画面に流し込む値 (ロゴ・メニュー・窓口・アカウント)
+    └── ui/                  画面部品。ドメインを知らない
 ```
 
 依存の向きは一方向に固定している。
@@ -42,6 +45,46 @@ app  ->  feature  ->  external
 - `domain` / `application` は `next` / `react` / `drizzle-orm` / `postgres` を import できない
 - feature 同士は互いの内部に触れない
 - `external` は feature と app を知らない
+
+## 画面 (`src/shared/ui`)
+
+管理画面の見た目は「同じものを二度書かない」ことを最優先に組んでいる。
+CSS フレームワークは入れず、Next.js 標準の CSS Modules と CSS 変数だけで完結させている。
+
+```
+src/shared/ui/
+├── styles/tokens.css   色・余白・文字サイズ・レイアウト寸法の定義 (唯一の生の値)
+├── styles/base.css     リセットと素の HTML の既定値
+├── icon/               アイコン。24x24 の線画をこの 1 ファイルに集約
+├── button/             Button / LinkButton / IconButton
+├── card/               Card / CardHeader / CardBody / CollapsibleCard
+├── page/               PageHeader / Breadcrumb
+├── stat/               StatGrid / StatTile
+├── layout/             Stack (縦積み)
+├── app-shell/          ヘッダー・サイドバー・パンくず・FAB の骨組み
+└── index.ts            公開 API。使う側は `@/shared/ui` からだけ import する
+```
+
+共通化の要は次の 3 つ。
+
+1. **トークン** — 色や余白の生の値を書いてよいのは `tokens.css` だけ。
+   他は必ず `var(--c-*)` `var(--s-*)` を参照するので、配色の変更が 1 ファイルで済む。
+2. **`AppShell`** — ヘッダー・サイドバー・本文の位置関係を持つのはここだけ。
+   `src/app/(dashboard)/` に置いたページは自動でこの骨組みを共有する。
+3. **設定の外出し** — 何を並べるかは `src/shared/app-config.ts` が持つ。
+   メニューを増やす・ロゴを変える・窓口を差し替える変更はこのファイルだけで完結し、
+   `@/shared/ui` 側は「どんな項目が来ても並べられる」ことだけを担当する。
+
+パンくずと、サイドバーのどのメニューを開くか・どこを選択中にするかは、
+すべて `app-config.ts` の `navigation` と現在の URL から自動で決まる (`findNavTrail`)。
+ページ側がパンくずを書くことはない。
+
+ページを足すときは `src/app/(dashboard)/<path>/page.tsx` を作り、
+`navigation` に項目を足すだけでよい。まだ中身が無い URL は
+`src/app/(dashboard)/[...slug]/page.tsx` が見出しだけを出す。
+`navigation` に無い URL はここで 404 になる。
+
+なお `/` は DB 疎通確認用のページのままにしてある。管理画面の入口は `/dashboard`。
 
 ## ORM: Drizzle ORM
 
