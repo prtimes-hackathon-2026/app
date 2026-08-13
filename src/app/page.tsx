@@ -2,6 +2,7 @@ import {
   diagnosticsFeature,
   type DatabaseTableCatalog,
 } from '@/feature/diagnostics'
+import styles from './page.module.css'
 
 /**
  * DB への疎通確認用のページ。
@@ -49,7 +50,7 @@ export default async function Page() {
   const catalogs = await diagnosticsFeature.listDatabaseTables()
 
   return (
-    <main>
+    <main className={styles.main}>
       <h1>データベースのテーブル一覧</h1>
       {catalogs.map((catalog) => (
         <Catalog key={catalog.database} catalog={catalog} />

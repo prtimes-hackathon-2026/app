@@ -1,0 +1,9 @@
+/*
+ * PR プレビューの動作確認用に、この画面だけ背景を青くしている。
+ * 見た目の検証が済んだら消してよい。
+ */
+.main {
+  min-height: 100%;
+  color: var(--c-on-primary);
+  background: var(--c-primary);
+}
