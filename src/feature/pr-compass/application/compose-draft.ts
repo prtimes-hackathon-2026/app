@@ -164,11 +164,17 @@ export function composeReason(insight: Insight, reason: Reason): Draft {
     const mine = hitCurve?.buckets.find(
       (b) => b.bucket === bucketOf(d.totalReleases),
     )
-    lines.push(
-      `反応が無かったのは、たしかに気持ちが折れます。ただ数字を見ると、${d.totalReleases}本の時点で手応えに届く企業は${pct(mine?.hitPct ?? 0)}しかいません。` +
-        `${d.totalReleases}本で判断するには早すぎる、というのが実態です。`,
-    )
-    if (mine) facts['その本数での当たり率'] = pct(mine.hitPct)
+    if (mine) {
+      lines.push(
+        `反応が無かったという御社の観測はそのとおりです。数字を見ると、同じ${d.industryName}で${mine.bucket}配信した企業のうち、手応えに届いたのは${pct(mine.hitPct)}でした。` +
+          `これは次回の成果を保証する数字ではありませんが、今回の結果だけで今後も同じとは判断できません。`,
+      )
+      facts['その本数での当たり率'] = pct(mine.hitPct)
+    } else {
+      lines.push(
+        `反応が無かったという御社の観測はそのとおりです。ただ、現在の配信本数に対応する同業種の比較値が取れていないため、効果の有無はまだ判定できません。`,
+      )
+    }
   } else if (reason === 'no_topic') {
     const common = [...trends].sort((a, b) => b.n - a.n)[0]
     const best = trends[0]

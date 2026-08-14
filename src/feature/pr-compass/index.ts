@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { salesFlowCasesFeature } from '@/feature/sales-flow-cases'
+
 import { advanceConversation } from './application/advance-conversation'
 import {
   openAiClassifier,
@@ -32,6 +34,7 @@ export const prCompassFeature = {
     insights: drizzleInsightRepository(),
     classifier: openAiClassifier(),
     narrator: openAiNarrator(),
+    salesFlowCases: salesFlowCasesFeature,
   }),
   /** 台本を音声にする。作れなければ null を返し、画面は音なしで進む */
   speak,

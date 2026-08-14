@@ -208,9 +208,15 @@ const MEMO_SYSTEM = `あなたは広報担当者との面談メモを書く担�
 
 export function openAiNarrator(): Narrator {
   return {
-    async speak({ facts, draft, history }) {
+    async speak({ facts, draft, history, policy }) {
+      const skillPolicy = policy
+        ? `\n\n今回選択されたSkill固有の方針です。上の共通制約に反しない範囲で従ってください。\n` +
+          `目的: ${policy.objective}\n` +
+          `手順:\n${policy.instructions.map((item) => `- ${item}`).join('\n')}\n` +
+          `禁止:\n${policy.prohibited.map((item) => `- ${item}`).join('\n')}`
+        : ''
       const out = await chat(
-        SPEAK_SYSTEM,
+        SPEAK_SYSTEM + skillPolicy,
         JSON.stringify(
           {
             facts,

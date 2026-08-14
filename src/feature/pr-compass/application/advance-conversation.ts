@@ -7,13 +7,15 @@ import {
   type Reason,
   type Step,
 } from '../domain/conversation'
+import type { SalesFlowCase } from '@/feature/sales-flow-cases'
 import type { Block } from '../domain/block'
+import type { DecisionTrace } from '../domain/decision-trace'
 import type { Insight } from '../domain/insight'
 import type {
   InsightLoadMode,
   InsightRepository,
 } from '../domain/insight-repository'
-import type { Classifier, Narrator } from '../domain/language'
+import type { Classifier, NarrationPolicy, Narrator } from '../domain/language'
 import { readKeyPoints } from '../infrastructure/article-reader'
 import { toScript } from '../infrastructure/voice.openai'
 
@@ -26,8 +28,10 @@ import {
   composeProposal,
   composeReason,
   composeWriteGuide,
-  type Draft,
 } from './compose-draft'
+import { validateNarrationNumbers } from './hooks/validate-narration-numbers'
+import type { RoutedDraft } from './skills/inference-skill'
+import { runInferenceSkill } from './skills/registry'
 
 export type ChatMessage = { role: 'user' | 'assistant'; content: string }
 
@@ -53,6 +57,8 @@ export type AdvanceResult = {
   speech: string
   /** 数値を描く部品。本文が言い換えで揺れても、ここの数字は変わらない */
   blocks: readonly Block[]
+  /** 選ばれたSkill・根拠・検証結果。モデルの非公開な思考過程は含めない */
+  decisionTrace?: DecisionTrace
 }
 
 /**
@@ -124,10 +130,42 @@ async function measured<T>(
   }
 }
 
+function salesFlowPolicy(
+  policy: NarrationPolicy | undefined,
+  flowCase: SalesFlowCase | null,
+): NarrationPolicy | undefined {
+  if (!flowCase) return policy
+
+  const caseInstructions = [
+    `営業フロー事例「${flowCase.title}」を現在の会話に合わせて参照する`,
+    `この事例の想定状況: ${flowCase.situation}`,
+    ...flowCase.steps.map(
+      (step, index) => `事例のステップ${index + 1}: ${step}`,
+    ),
+    ...(flowCase.talkExample
+      ? [`話し方の例（そのまま引用しない）: ${flowCase.talkExample}`]
+      : []),
+    `この事例で目指す状態: ${flowCase.desiredOutcome}`,
+  ]
+
+  return {
+    objective: policy?.objective ?? flowCase.desiredOutcome,
+    instructions: [...(policy?.instructions ?? []), ...caseInstructions],
+    prohibited: [
+      ...(policy?.prohibited ?? []),
+      '営業フロー事例を、この会社の実績や確定事実として説明する',
+      '事例内の数字を、下書きに無い会社固有の数字として追加する',
+    ],
+  }
+}
+
 export function advanceConversation(deps: {
   insights: InsightRepository
   classifier: Classifier
   narrator: Narrator
+  salesFlowCases?: {
+    findSalesFlowCase(reason: Reason): Promise<SalesFlowCase | null>
+  }
 }): AdvanceConversation {
   return async ({ companyId, messages, memo = '', insightMode = 'full' }) => {
     const requestStartedAt = performance.now()
@@ -159,11 +197,27 @@ export function advanceConversation(deps: {
       finished: false,
     }
 
-    const { draft, facts, suggestions, blocks } = await measured(
-      timings,
-      'route',
-      () => route(step, text, insight, state, deps.classifier),
+    const {
+      draft,
+      facts,
+      suggestions,
+      blocks,
+      narrationPolicy,
+      decisionTrace,
+    } = await measured(timings, 'route', () =>
+      route(step, text, insight, state, deps.classifier),
     )
+
+    const salesFlowSource = deps.salesFlowCases
+    const selectedReason = state.reason
+    const flowCase =
+      step === 'reason' && selectedReason && salesFlowSource
+        ? await measured(timings, 'salesFlowCase', () =>
+            salesFlowSource.findSalesFlowCase(selectedReason),
+          )
+        : null
+    if (!flowCase) timings.salesFlowCase ??= 0
+    const effectiveNarrationPolicy = salesFlowPolicy(narrationPolicy, flowCase)
 
     const history = messages.slice(-6)
 
@@ -188,7 +242,12 @@ export function advanceConversation(deps: {
           withKeyPoints(blocks, [text, draft].filter(Boolean).join('\n')),
         ),
         measured(timings, 'narrator', () =>
-          deps.narrator.speak({ facts, draft, history }),
+          deps.narrator.speak({
+            facts,
+            draft,
+            history,
+            policy: effectiveNarrationPolicy,
+          }),
         ),
         measured(timings, 'memo', () =>
           deps.narrator.memo({
@@ -202,6 +261,63 @@ export function advanceConversation(deps: {
       spoken = generated[1]
       nextMemo = generated[2]
     }
+
+    const numberValidation = validateNarrationNumbers(draft, spoken)
+    if (!numberValidation.passed) {
+      console.warn(
+        '[pr-compass:narration-number-fallback]',
+        JSON.stringify({
+          companyId,
+          step,
+          missing: numberValidation.missing,
+          unexpected: numberValidation.unexpected,
+        }),
+      )
+      spoken = draft
+    }
+
+    const trace: DecisionTrace | undefined =
+      decisionTrace ??
+      (flowCase
+        ? {
+            step,
+            skill: null,
+            matchedRules: [],
+            evidence: [],
+            decision: `営業フロー事例「${flowCase.title}」を適用`,
+            nextRoute: 'proposal',
+            validations: [],
+          }
+        : undefined)
+
+    const validatedTrace: DecisionTrace | undefined = trace
+      ? {
+          ...trace,
+          ...(flowCase
+            ? {
+                salesFlowCase: {
+                  id: flowCase.id,
+                  title: flowCase.title,
+                  priority: flowCase.priority,
+                },
+              }
+            : {}),
+          validations: [
+            ...trace.validations,
+            {
+              hook: 'narration-numbers-v1',
+              status: numberValidation.passed ? 'passed' : 'failed',
+              ...(!numberValidation.passed
+                ? {
+                    details:
+                      `missing=${numberValidation.missing.join(',') || '-'}; ` +
+                      `unexpected=${numberValidation.unexpected.join(',') || '-'}`,
+                  }
+                : {}),
+            },
+          ],
+        }
+      : undefined
 
     timings.total = Math.round(performance.now() - requestStartedAt)
     console.info(
@@ -218,6 +334,7 @@ export function advanceConversation(deps: {
       // 断られただけで閉じてしまうと、粘る前に入力欄が消える
       phase: state.finished ? 'complete' : phaseOf(step),
       memo: nextMemo,
+      ...(validatedTrace ? { decisionTrace: validatedTrace } : {}),
     }
   }
 }
@@ -256,13 +373,21 @@ async function route(
   insight: Insight,
   state: ConversationState,
   classifier: Classifier,
-): Promise<Draft> {
+): Promise<RoutedDraft> {
   if (step === 'diagnosis') return composeDiagnosis(insight)
 
   if (step === 'reason') {
     const reason = await classifier.reason(text)
     state.reason = reason
     state.interest = inferInterest(reason)
+    const skillResult = runInferenceSkill({
+      step,
+      reason,
+      input: text,
+      insight,
+      state,
+    })
+    if (skillResult) return skillResult
     return composeReason(insight, reason)
   }
 
