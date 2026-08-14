@@ -4,3 +4,6 @@ pnpm-lock.yaml
 drizzle/app/migrations/
 drizzle/stats/
 voice-agent/
+
+# 収集した記事データ（生成物なので整形対象から外す）
+magazine.json

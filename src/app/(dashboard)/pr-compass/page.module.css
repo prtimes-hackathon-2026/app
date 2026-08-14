@@ -326,3 +326,338 @@
     height: calc(100dvh - var(--header-h) - 44px - 220px);
   }
 }
+
+/* サジェスト。選ばせるためではなく、書き出しの助けとして置く */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-bottom: var(--s-3);
+}
+
+.suggestion {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-full, 999px);
+  cursor: pointer;
+  transition: 0.12s;
+}
+
+.suggestion:hover {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.suggestion:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* 音声。使い方が分かるようラベルに状態を書く */
+.voiceBar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--s-3);
+}
+
+.voiceBtn {
+  padding: var(--s-2) var(--s-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: 0.12s;
+}
+
+.voiceBtn:hover:not(:disabled) {
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.voiceBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.voiceBtnActive {
+  color: var(--c-on-primary);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.voiceToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+
+/* ── 数値の表示 ───────────────────────────────
+   本文の補助図。主役は会話なので、控えめに置く。
+   数字を大きく見せるほど押し付けがましくなるため、
+   本文より小さく、色も最小限にとどめる */
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  margin-top: var(--s-3);
+}
+
+.card {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--c-border);
+}
+
+.cardTitle {
+  font-size: 0.7rem;
+  font-weight: var(--fw-bold);
+  color: var(--c-text-muted);
+  margin-bottom: var(--s-2);
+}
+
+.cardNote {
+  margin: var(--s-2) 0 0;
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+/* 見出し数値。本文と同じくらいの大きさに留める */
+.statRow {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-3);
+  background: var(--c-surface);
+  border-radius: var(--r-md);
+}
+
+.statValue {
+  font-size: 0.95rem;
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: 0.68rem;
+  color: var(--c-text-muted);
+}
+
+/* 目標。塗りつぶさず、左の罫線だけで示す */
+.goal {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border-left: 2px solid var(--c-primary);
+  background: var(--c-surface);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+}
+
+.goalHeadline {
+  font-size: 1rem;
+  font-weight: var(--fw-bold);
+  color: var(--c-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.goalDetail {
+  font-size: 0.7rem;
+  line-height: 1.6;
+  color: var(--c-text-muted);
+}
+
+/* 棒グラフ */
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 4.2rem;
+  padding-top: 0.85rem;
+}
+
+.barCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+
+.bar {
+  width: 100%;
+  min-height: 2px;
+  background: var(--c-surface);
+  border-radius: 2px 2px 0 0;
+}
+
+.barHi {
+  background: var(--c-primary);
+}
+
+.barValue {
+  position: absolute;
+  top: -0.85rem;
+  font-size: 0.6rem;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.barLabel {
+  margin-top: 3px;
+  font-size: 0.58rem;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+
+/* 前後の比較 */
+.compare {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.compareSide {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-1);
+}
+
+.compareValue {
+  font-size: 0.95rem;
+  font-weight: var(--fw-bold);
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.compareValueHi {
+  color: var(--c-primary);
+}
+
+.compareLabel {
+  font-size: 0.68rem;
+  color: var(--c-text-muted);
+}
+
+.compareArrow {
+  color: var(--c-text-muted);
+  font-size: 0.7rem;
+}
+
+/* 表 */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 1px solid var(--c-border);
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--c-text-muted);
+  font-weight: var(--fw-bold);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* チェックリスト */
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+
+.checklist li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding-left: var(--s-4);
+  position: relative;
+}
+
+.checklist li::before {
+  content: '□';
+  position: absolute;
+  left: 0;
+  font-size: 0.7rem;
+  color: var(--c-text-muted);
+}
+
+.checkLabel {
+  font-size: 0.78rem;
+}
+
+.checkDiff {
+  font-size: 0.68rem;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 参考記事。なぜ出したかを必ず添える */
+.articles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.articles li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.articleLink {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--c-primary);
+  text-decoration: none;
+}
+
+.articleLink:hover {
+  text-decoration: underline;
+}
+
+.articleWhy {
+  font-size: 0.66rem;
+  color: var(--c-text-muted);
+}
