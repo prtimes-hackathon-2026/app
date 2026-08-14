@@ -25,7 +25,7 @@ const envSchema = z.object({
   STATS_DATABASE_SSL: sslModeSchema.default('require'),
   STATS_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
 
-  // PR羅針盤 AI コーチング機能。
+  // 目的設計 AI コーチング機能。
   // キーが無くてもテンプレの下書きをそのまま出せば会話は成立するので optional に
   // している。ここで必須にすると、キーを持たない環境でアプリ全体が動かなくなる。
   OPENAI_API_KEY: z.string().min(1).optional(),

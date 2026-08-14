@@ -9,7 +9,7 @@ import styles from './pr-compass-banner.module.css'
  */
 export function PrCompassBanner() {
   return (
-    <div className={styles.banner} role="region" aria-label="PR羅針盤のご案内">
+    <div className={styles.banner} role="region" aria-label="目的設計のご案内">
       <div className={styles.bannerIcon}>
         <Icon name="chat" size={20} />
       </div>
