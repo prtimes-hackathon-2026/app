@@ -1,0 +1,141 @@
+/*
+ * ログイン画面。管理画面の骨組み (AppShell) の外に置く数少ない画面なので、
+ * 位置取りをここが自前で持つ。色・余白・角丸はトークンだけを参照する。
+ */
+
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: var(--s-8) var(--s-4);
+  background: var(--c-surface-muted);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--s-8);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 企業の一覧を出す 2 段目は表が入るぶんだけ広げる */
+.wide {
+  max-width: 880px;
+}
+
+.brand {
+  color: var(--c-primary);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.04em;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
+.title {
+  font-size: var(--fs-lg);
+}
+
+.description {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* ────────────────────────────────────────────
+   1 段目：パスワード
+──────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.input {
+  padding: var(--s-3);
+  font-weight: var(--fw-normal);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+}
+
+.input:disabled {
+  background: var(--c-surface-muted);
+}
+
+/* ────────────────────────────────────────────
+   2 段目：企業の選択
+──────────────────────────────────────────── */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--s-2) var(--s-3);
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.table thead th {
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  border-bottom: 1px solid var(--c-border-strong);
+}
+
+.num {
+  text-align: right;
+}
+
+/* ────────────────────────────────────────────
+   共通
+──────────────────────────────────────────── */
+
+/* トークンに状態色が無いため、色ではなく枠線とアイコンで本文と区別する */
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+}
+
+.note {
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+}

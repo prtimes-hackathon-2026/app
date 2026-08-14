@@ -28,6 +28,8 @@ export type AppShellProps = {
   actions?: HeaderAction[]
   support?: SupportInfo
   account?: AccountInfo
+  /** アカウントの右隣に置く操作 (ログアウトなど) */
+  accountAction?: ReactNode
   children: ReactNode
 }
 
@@ -43,6 +45,7 @@ export function AppShell({
   actions,
   support,
   account,
+  accountAction,
   children,
 }: AppShellProps) {
   const pathname = usePathname()
@@ -77,6 +80,7 @@ export function AppShell({
         actions={actions}
         support={support}
         account={account}
+        accountAction={accountAction}
       />
 
       <div className={styles.body}>

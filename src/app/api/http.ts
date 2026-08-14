@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 /**
- * pr-agent の Route Handler で応答の形を揃えるための小さなヘルパー。
+ * Route Handler で応答の形を揃えるための小さなヘルパー。
  *
  * `error` は画面がそのまま利用者に見せる文言なので、例外のメッセージは載せない。
  * 詳細 (`details`) は入力の不備を直すための情報だけを入れる。

@@ -3,10 +3,14 @@ import { z } from 'zod'
 
 import { prAgentFeature, type UserAnswer } from '@/feature/pr-agent'
 
-import { errorResponse, readJson } from '../../../http'
+import { errorResponse, readJson } from '../../../../http'
+import { signedInSession } from '../../../../../session'
 
 /**
  * 回答を受け取り、次のターンを返す。
+ *
+ * 自社の会話にしか答えられない。他社の会話 ID を渡された場合は、
+ * 存在しないときと同じ 404 で返す (存在の有無を知られないようにする)。
  *
  * 動的セグメントの `params` は Promise なので await する。
  * 型は typegen が生成するグローバルヘルパー `RouteContext<...>` を使う (import 不要)。
@@ -32,6 +36,11 @@ export async function POST(
 ) {
   const { id } = await context.params
 
+  const session = await signedInSession()
+  if (session === null) {
+    return errorResponse(401, 'ログインしてください')
+  }
+
   const body = await readJson(request)
   if (!body.ok) {
     return errorResponse(400, 'リクエストの本文を JSON として読めませんでした')
@@ -50,7 +59,7 @@ export async function POST(
     // ターンの遷移そのものの判定は feature 側 (assertCanAdvance) が正で、
     // ここでやっているのは HTTP ステータスの割り当てだけ
     const found = await prAgentFeature.get(id)
-    if (found === null) {
+    if (found === null || found.conversation.companyId !== session.company.id) {
       return errorResponse(404, '会話が見つかりません')
     }
     if (found.conversation.status !== 'in_progress') {

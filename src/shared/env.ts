@@ -81,3 +81,62 @@ export function shouldMigrateOnStartup(): boolean {
 
   return parsed.data
 }
+
+/**
+ * 簡易ログインの設定。
+ *
+ * 共有の合言葉を 1 つ知っていれば入れる、という割り切った仕組みなので、
+ * 利用者ごとの資格情報は持たない (README「簡易ログイン」)。
+ */
+const authSchema = z.object({
+  // 合言葉。既定値はデモ用で、公開する環境では必ず差し替える
+  AUTH_PASSWORD: z.string().min(1).default('prtimes'),
+  // セッション Cookie の署名鍵。production では必須 (下の authConfig を参照)
+  AUTH_SESSION_SECRET: z.string().min(32).optional(),
+})
+
+export type AuthConfig = {
+  readonly password: string
+  readonly sessionSecret: string
+}
+
+/**
+ * 開発用の署名鍵。
+ *
+ * これで署名した Cookie は「開発機で作った」以上の意味を持たない。
+ * production で鍵が未設定なら、この値に落ちる前に例外にする。
+ */
+const developmentSessionSecret =
+  'development-only-session-secret-do-not-use-in-production'
+
+let cachedAuth: AuthConfig | undefined
+
+/**
+ * ここも `env()` を通さず生の環境変数を見る。理由は shouldMigrateOnStartup() と同じで、
+ * DB の接続情報が無い環境 (模擬データで動かすデモ、CI の `next build`) でも
+ * ログイン画面までは出せるようにしておきたいため。
+ */
+export function authConfig(): AuthConfig {
+  if (cachedAuth) return cachedAuth
+
+  const parsed = authSchema.safeParse(process.env)
+  if (!parsed.success) {
+    throw new Error(
+      `ログインの環境変数が不正です:\n${z.prettifyError(parsed.error)}`,
+      { cause: parsed.error },
+    )
+  }
+
+  const secret = parsed.data.AUTH_SESSION_SECRET
+  if (secret === undefined && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_SESSION_SECRET が未設定です。32 文字以上の値を設定してください (openssl rand -base64 32)',
+    )
+  }
+
+  cachedAuth = {
+    password: parsed.data.AUTH_PASSWORD,
+    sessionSecret: secret ?? developmentSessionSecret,
+  }
+  return cachedAuth
+}

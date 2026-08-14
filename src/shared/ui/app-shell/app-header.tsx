@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { type ReactNode } from 'react'
 import { IconButton } from '../button/icon-button'
 import { LinkButton } from '../button/button'
 import { Icon } from '../icon/icon'
@@ -15,6 +16,8 @@ type AppHeaderProps = {
   actions?: HeaderAction[]
   support?: SupportInfo
   account?: AccountInfo
+  /** アカウントの右隣に置く操作 (ログアウトなど)。中身は使う側が決める */
+  accountAction?: ReactNode
 }
 
 /**
@@ -26,6 +29,7 @@ export function AppHeader({
   actions,
   support,
   account,
+  accountAction,
 }: AppHeaderProps) {
   return (
     <header className={styles.header}>
@@ -82,6 +86,8 @@ export function AppHeader({
             <Icon name="account" size={30} className={styles.avatar} />
           </Link>
         )}
+
+        {accountAction}
       </div>
     </header>
   )
