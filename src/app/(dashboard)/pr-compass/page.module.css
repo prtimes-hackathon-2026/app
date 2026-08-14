@@ -89,7 +89,15 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--s-2);
+}
+
+/* 1項目1行。行の中で折り返しても、次の項目と地続きに見えないようにする */
+.memoItem {
+  color: var(--c-text);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  word-break: break-word;
 }
 
 .memoRow {
@@ -215,8 +223,18 @@
   background: var(--c-primary);
   color: var(--c-on-primary);
   border-bottom-right-radius: var(--r-sm);
-  /* 自由入力の改行をそのまま残す。AI 側は要素で組むので掛けない */
+}
+
+/*
+ * 本文の段落。段落の間隔は余白で取り、段落の中の改行（箇条書きなど）は
+ * そのまま残す。AI の本文も自由入力も、同じ組み方で読めるようにする。
+ */
+.paragraph {
   white-space: pre-wrap;
+}
+
+.paragraph + .paragraph {
+  margin-top: var(--s-3);
 }
 
 /* サーバの描画が返るまでの仮表示 */
