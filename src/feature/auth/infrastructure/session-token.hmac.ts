@@ -24,6 +24,8 @@ const payloadSchema = z.discriminatedUnion('stage', [
   z.object({
     stage: z.literal('password'),
     exp: z.int().positive(),
+    // この項目を持たない既存 Cookie は企業利用者として引き続き読める
+    adminAllowed: z.boolean().default(false),
   }),
   z.object({
     stage: z.literal('signed-in'),
@@ -101,7 +103,9 @@ export function hmacSessionTokenCodec(secret: string): SessionTokenCodec {
 
 function toPayload(session: Session): Payload {
   const exp = session.expiresAt.getTime()
-  if (session.stage === 'password') return { stage: 'password', exp }
+  if (session.stage === 'password') {
+    return { stage: 'password', exp, adminAllowed: session.adminAllowed }
+  }
   if (session.stage === 'admin') return { stage: 'admin', exp }
   return {
     stage: 'signed-in',
@@ -113,7 +117,13 @@ function toPayload(session: Session): Payload {
 
 function toSession(payload: Payload): Session {
   const expiresAt = new Date(payload.exp)
-  if (payload.stage === 'password') return { stage: 'password', expiresAt }
+  if (payload.stage === 'password') {
+    return {
+      stage: 'password',
+      adminAllowed: payload.adminAllowed,
+      expiresAt,
+    }
+  }
   if (payload.stage === 'admin') return { stage: 'admin', expiresAt }
   return {
     stage: 'signed-in',

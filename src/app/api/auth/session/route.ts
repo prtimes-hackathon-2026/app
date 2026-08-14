@@ -19,11 +19,15 @@ import {
  * そのまま通してしまうと、任意の企業の内部データを引けた設計 §11(a) の状態に戻る。
  */
 
-const bodySchema = z.object({
-  // 0 を弾かないのは、模擬データの企業が ID 0 のため (DB 無しでも一通り動かせるようにする)。
-  // 実在する企業かどうかは、下で一覧と突き合わせて確かめる
-  companyId: z.int().nonnegative(),
-})
+const bodySchema = z.discriminatedUnion('role', [
+  z.object({
+    role: z.literal('company'),
+    // 0 を弾かないのは、模擬データの企業が ID 0 のため (DB 無しでも一通り動かせるようにする)。
+    // 実在する企業かどうかは、下で一覧と突き合わせて確かめる
+    companyId: z.int().nonnegative(),
+  }),
+  z.object({ role: z.literal('admin') }),
+])
 
 export async function POST(request: Request) {
   const body = await readJson(request)
@@ -42,10 +46,20 @@ export async function POST(request: Request) {
     return errorResponse(401, '先にパスワードを入力してください')
   }
 
+  if (parsed.data.role === 'admin') {
+    const issued = await authFeature.signInAdmin(session)
+    if (issued === null) {
+      return errorResponse(403, '管理者としてログインできません')
+    }
+    await writeSessionCookie(issued)
+    return new NextResponse(null, { status: 204 })
+  }
+
   try {
+    const companyId = parsed.data.companyId
     const companies = await prCompassFeature.findStoppedCompanies()
     const company = companies.find(
-      (candidate) => candidate.companyId === parsed.data.companyId,
+      (candidate) => candidate.companyId === companyId,
     )
     if (company === undefined) {
       return errorResponse(400, 'この企業では始められません')

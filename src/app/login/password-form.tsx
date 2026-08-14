@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useTransition, type FormEvent } from 'react'
 
-import { adminPath, companySelectPath } from '@/shared/auth'
+import { companySelectPath } from '@/shared/auth'
 import { Button } from '@/shared/ui'
 
 import { LoginError } from './panel'
@@ -12,7 +12,7 @@ import styles from './login.module.css'
 /**
  * パスワードの送信。
  *
- * 照合はサーバでしか行わない。ここはログイン種別と入力を Route Handler に渡し、
+ * 照合はサーバでしか行わない。ここは入力を Route Handler に渡し、
  * 返ってきた結果で画面を進めるだけで、正解のパスワードには一切触れない。
  *
  * 成功したときに `router.refresh()` も呼ぶのは、遷移先の描画が Cookie に依存するため。
@@ -23,7 +23,6 @@ export function PasswordForm() {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'company' | 'admin'>('company')
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -36,7 +35,7 @@ export function PasswordForm() {
         response = await fetch('/api/auth/password', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password, role }),
+          body: JSON.stringify({ password }),
         })
       } catch {
         setError('通信に失敗しました。もう一度お試しください。')
@@ -52,7 +51,7 @@ export function PasswordForm() {
         return
       }
 
-      router.push(role === 'admin' ? adminPath : companySelectPath)
+      router.push(companySelectPath)
       router.refresh()
     })
   }
@@ -60,35 +59,6 @@ export function PasswordForm() {
   return (
     <form className={styles.form} onSubmit={submit}>
       {error === null ? null : <LoginError message={error} />}
-
-      <fieldset className={styles.roleFieldset} disabled={isPending}>
-        <legend className={styles.labelText}>ログイン種別</legend>
-        <div className={styles.roleOptions}>
-          <label
-            className={styles.roleOption}
-            data-selected={role === 'company'}
-          >
-            <input
-              type="radio"
-              name="role"
-              value="company"
-              checked={role === 'company'}
-              onChange={() => setRole('company')}
-            />
-            企業利用者
-          </label>
-          <label className={styles.roleOption} data-selected={role === 'admin'}>
-            <input
-              type="radio"
-              name="role"
-              value="admin"
-              checked={role === 'admin'}
-              onChange={() => setRole('admin')}
-            />
-            管理者
-          </label>
-        </div>
-      </fieldset>
 
       <label className={styles.label}>
         パスワード
@@ -111,11 +81,7 @@ export function PasswordForm() {
         block
         disabled={isPending || password === ''}
       >
-        {isPending
-          ? '確認しています…'
-          : role === 'admin'
-            ? '管理画面へログイン'
-            : '次へ'}
+        {isPending ? '確認しています…' : '次へ'}
       </Button>
     </form>
   )
