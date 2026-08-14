@@ -22,8 +22,24 @@
 .memoHeader {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--s-2);
   color: var(--c-text-muted);
+}
+
+.memoHeaderTitle,
+.memoHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.memoCloseBtn {
+  display: none;
+}
+
+.mobileMemoFab {
+  display: none;
 }
 
 .memoHeaderLabel {
@@ -310,16 +326,80 @@
 /* レスポンシブ */
 @media (max-width: 899px) {
   .page {
+    position: relative;
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
     height: calc(100dvh - var(--header-h) - 44px);
     overflow: hidden;
   }
 
+  .mobileMemoFab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: var(--s-3);
+    left: var(--s-4);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--r-md);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-strong);
+    color: var(--c-text-muted);
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+    transition:
+      opacity 0.2s,
+      transform 0.2s;
+  }
+
+  .mobileMemoFab.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.9);
+  }
+
   .sidebar {
-    max-height: 120px;
-    border-right: none;
-    border-bottom: 1px solid var(--c-border);
+    position: absolute;
+    top: var(--s-2);
+    left: var(--s-3);
+    right: var(--s-3);
+    z-index: 20;
+    background: var(--c-surface);
+    border-radius: var(--r-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--c-border);
+    transition:
+      opacity 0.3s ease,
+      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebarClosed {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-10px);
+  }
+
+  .sidebarOpen {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+    max-height: 50vh;
+    padding-bottom: var(--s-4);
+  }
+
+  .memoCloseBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--c-text-muted);
+    font-size: 16px;
+    cursor: pointer;
   }
 
   .chat {
