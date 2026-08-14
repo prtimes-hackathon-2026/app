@@ -17,7 +17,7 @@ services:
       STATS_DATABASE_URL: postgres://stats_reader:stats@stats-db:5432/stats
       STATS_DATABASE_SSL: disable
       STATS_DATABASE_POOL_MAX: '5'
-      # PR羅針盤 AI コーチング機能
+      # 目的設計 AI コーチング機能
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       # 簡易ログイン。既定の鍵はローカル専用 (固定にしてあるので再起動しても入り直さずに済む)
       AUTH_PASSWORD: ${AUTH_PASSWORD:-prtimes}

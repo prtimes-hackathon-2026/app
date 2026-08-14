@@ -244,6 +244,8 @@ function MemoPanel({
   phase: Phase
   loading: boolean
 }) {
+  const [isOpen, setIsOpen] = useState(false)
+
   const badgeClass =
     phase === 'discovery'
       ? styles.phaseBadgeDiscovery
@@ -252,46 +254,71 @@ function MemoPanel({
         : styles.phaseBadgeProposal
 
   return (
-    <aside className={styles.sidebar}>
-      <div className={styles.memoHeader}>
-        <Icon name="form" size={14} />
-        <span className={styles.memoHeaderLabel}>聞き取りメモ</span>
+    <>
+      <button
+        type="button"
+        className={`${styles.mobileMemoFab} ${isOpen ? styles.hidden : ''}`}
+        onClick={() => setIsOpen(true)}
+        aria-label="メモを開く"
+      >
+        <Icon name="form" size={20} />
+      </button>
 
-        {phase !== 'complete' && (
-          <span className={`${styles.phaseBadge} ${badgeClass}`}>
-            {PHASE_LABELS[phase]}
-          </span>
-        )}
-      </div>
-
-      {memo ? (
-        // メモは「・」始まりの1行1項目で届く。行ごとに組まないと1行に繋がって読めない
-        <div
-          className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}
-        >
-          {memo
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .map((line, i) => (
-              <p key={i} className={styles.memoItem}>
-                {line}
-              </p>
-            ))}
-        </div>
-      ) : (
-        <div className={styles.memoEmpty}>
-          <div className={styles.memoEmptyIcon}>
-            <Icon name="form" size={16} />
+      <aside
+        className={`${styles.sidebar} ${isOpen ? styles.sidebarOpen : styles.sidebarClosed}`}
+      >
+        <div className={styles.memoHeader}>
+          <div className={styles.memoHeaderTitle}>
+            <Icon name="form" size={14} />
+            <span className={styles.memoHeaderLabel}>聞き取りメモ</span>
           </div>
-          <span>
-            会話が進むにつれて、
-            <br />
-            ここに内容が記録されていきます。
-          </span>
+
+          <div className={styles.memoHeaderRight}>
+            {phase !== 'complete' && (
+              <span className={`${styles.phaseBadge} ${badgeClass}`}>
+                {PHASE_LABELS[phase]}
+              </span>
+            )}
+            <button
+              type="button"
+              className={styles.memoCloseBtn}
+              onClick={() => setIsOpen(false)}
+              aria-label="メモを閉じる"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-      )}
-    </aside>
+
+        {memo ? (
+          // メモは「・」始まりの1行1項目で届く。行ごとに組まないと1行に繋がって読めない
+          <div
+            className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}
+          >
+            {memo
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line, i) => (
+                <p key={i} className={styles.memoItem}>
+                  {line}
+                </p>
+              ))}
+          </div>
+        ) : (
+          <div className={styles.memoEmpty}>
+            <div className={styles.memoEmptyIcon}>
+              <Icon name="form" size={16} />
+            </div>
+            <span>
+              会話が進むにつれて、
+              <br />
+              ここに内容が記録されていきます。
+            </span>
+          </div>
+        )}
+      </aside>
+    </>
   )
 }
 
