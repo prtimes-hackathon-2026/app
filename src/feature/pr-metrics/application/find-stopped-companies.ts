@@ -11,10 +11,10 @@ export type FindStoppedCompanies = (
 ) => Promise<readonly StoppedCompany[]>
 
 /**
- * デモ対象を探す。認証がまだ無いため、企業を人が選ぶ画面のためにある (設計 §11(a))。
+ * 対象になりうる企業を探す。ログインで企業を選ばせる画面がこれを使う (設計 §11(a))。
  *
- * 認証が入ったら app 層で企業 ID を確定させる形に置き換わるので、
- * ここは「デモ用」であることを前提に、絞り込み条件を増やさない。
+ * 「どの企業として入れるか」の一覧でもあるので、絞り込み条件はここで増やさない。
+ * 条件を足すと、入れる企業が黙って変わってしまう。
  */
 export function findStoppedCompanies(
   repository: MetricsRepository,

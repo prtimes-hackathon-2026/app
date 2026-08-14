@@ -3,9 +3,14 @@ import {
   type DatabaseTableCatalog,
 } from '@/feature/diagnostics'
 
+import { requireSignedIn } from './session'
+
 /**
  * DB への疎通確認用のページ。
  * 接続先のテーブル一覧をそのまま出すだけで、業務上の意味は持たない。
+ *
+ * 業務上の意味は無くても接続先の構造は分かってしまうので、ログインは要求する。
+ * 死活監視には認証の要らない `/api/health` を使う。
  */
 export const dynamic = 'force-dynamic'
 
@@ -46,6 +51,7 @@ function Catalog({ catalog }: { catalog: DatabaseTableCatalog }) {
 }
 
 export default async function Page() {
+  await requireSignedIn()
   const catalogs = await diagnosticsFeature.listDatabaseTables()
 
   return (

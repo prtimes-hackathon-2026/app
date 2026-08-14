@@ -12,7 +12,7 @@ import {
   cx,
 } from '@/shared/ui'
 
-import { blank, formatDate, formatNumber, formatPercent } from './format'
+import { blank, formatDate, formatNumber, formatPercent } from '@/shared/format'
 import styles from './blocks.module.css'
 
 /**

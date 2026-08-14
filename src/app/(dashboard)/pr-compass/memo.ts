@@ -7,7 +7,7 @@ import type {
   UserAnswer,
 } from '@/feature/pr-agent'
 
-import { blank, formatNumber, formatPercent } from './format'
+import { blank, formatNumber, formatPercent } from '@/shared/format'
 
 /**
  * 聞き取りメモの組み立て。

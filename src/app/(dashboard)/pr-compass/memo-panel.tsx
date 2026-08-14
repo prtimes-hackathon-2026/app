@@ -1,6 +1,7 @@
 import Link from 'next/link'
 
 import type { TurnNumber } from '@/feature/pr-agent'
+import { companySelectPath } from '@/shared/auth'
 import { cx, Icon } from '@/shared/ui'
 
 import { isMemoEmpty, type MemoItem } from './memo'
@@ -83,14 +84,15 @@ export function MemoPanel({
       )}
 
       {/*
-        認証がまだ無いことによる暫定措置であることを、利用者にも分かる形で出しておく
-        (設計 §11(a))。認証が入ったらこの注記ごと消える。
+        どの企業として見ているかはログインで決まっている (設計 §11(a) の解消)。
+        企業を変えたくなったときの行き先も、迷わないようにここに出しておく。
       */}
       <div className={styles.memoFooter}>
         <p className={styles.memoNote}>
-          デモ用の画面です。ログインの仕組みがまだ無いため、対象の企業を一覧から選ぶ形にしています。
+          ログインした企業のデータで対話しています。
         </p>
-        {started ? <Link href="/pr-compass">別の企業で試す</Link> : null}
+        {started ? <Link href="/pr-compass">新しい会話を始める</Link> : null}
+        <Link href={companySelectPath}>別の企業に切り替える</Link>
       </div>
     </aside>
   )
