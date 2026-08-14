@@ -33,7 +33,12 @@ type Block =
   | {
       type: 'articles'
       title: string
-      items: { title: string; url: string; why: string }[]
+      items: {
+        title: string
+        url: string
+        why: string
+        points?: string[]
+      }[]
     }
   | {
       type: 'checklist'
@@ -141,6 +146,18 @@ function Blocks({ blocks }: { blocks?: Block[] }) {
                       {a.title}
                     </a>
                     <span className={styles.articleWhy}>{a.why}</span>
+                    {!!a.points?.length && (
+                      <div className={styles.articlePoints}>
+                        <span className={styles.articlePointsLabel}>
+                          記事から抜き出した要点
+                        </span>
+                        <ul>
+                          {a.points.map((point) => (
+                            <li key={point}>{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -326,61 +343,119 @@ export default function PrCompassPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
   const [phase, setPhase] = useState<Phase>('discovery')
   const [memo, setMemo] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
-  // 音声。読み上げは任意機能で、失敗しても会話は続く
+  // 音声は任意機能。失敗してもテキストの会話は続く
   const [autoSpeak, setAutoSpeak] = useState(false)
   const [speaking, setSpeaking] = useState(false)
   const [recording, setRecording] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioUrlRef = useRef<string | null>(null)
+  const speechAbortRef = useRef<AbortController | null>(null)
+  const speechRequestRef = useRef(0)
+  const lastAutoSpokenIndexRef = useRef(-1)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  const conversationStartedRef = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [speech, setSpeech] = useState('')
 
   const isComplete = phase === 'complete'
 
   // 初回AIメッセージを取得
   useEffect(() => {
-    fetch('/api/pr-compass/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [] }),
-    })
-      .then((r) => r.json())
-      .then(
-        ({
+    const controller = new AbortController()
+    let active = true
+
+    async function requestAnalysis(analysisMode: 'initial' | 'full') {
+      const startedAt = performance.now()
+      const response = await fetch('/api/pr-compass/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [], analysisMode }),
+        signal: controller.signal,
+      })
+      const payload = await response.json()
+      console.info(
+        '[pr-compass:timing]',
+        JSON.stringify({
+          stage: `${analysisMode}-fetch`,
+          status: response.status,
+          durationMs: Math.round(performance.now() - startedAt),
+        }),
+      )
+      if (!response.ok) throw new Error(`chat failed: ${response.status}`)
+      return payload
+    }
+
+    async function initialize() {
+      try {
+        const {
           content,
           phase: p,
           memo: m,
           suggestions: s,
-          speech: sp,
           blocks,
-        }) => {
-          setMessages([{ role: 'assistant', content, blocks }])
-          if (p) setPhase(p as Phase)
-          if (m) setMemo(m)
-          setSuggestions(Array.isArray(s) ? s : [])
-          setSpeech(sp ?? '')
-        },
-      )
-      .catch(() => {
-        setMessages([
-          {
-            role: 'assistant',
-            content:
-              '申し訳ありません。接続に問題が発生しました。しばらく経ってから再度お試しください。',
-          },
-        ])
-      })
-      .finally(() => setLoading(false))
+        } = await requestAnalysis('initial')
+        if (!active) return
+
+        setMessages([{ role: 'assistant', content, blocks }])
+        if (p) setPhase(p as Phase)
+        if (m) setMemo(m)
+        setSuggestions(Array.isArray(s) ? s : [])
+        setLoading(false)
+      } catch (error) {
+        if (!active) return
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setMessages([
+            {
+              role: 'assistant',
+              content:
+                '申し訳ありません。接続に問題が発生しました。しばらく経ってから再度お試しください。',
+            },
+          ])
+        }
+        setLoading(false)
+        return
+      }
+
+      setAnalysisLoading(true)
+      try {
+        const {
+          content,
+          phase: p,
+          memo: m,
+          suggestions: s,
+          blocks,
+        } = await requestAnalysis('full')
+        if (!active || conversationStartedRef.current) return
+
+        setMessages([{ role: 'assistant', content, blocks }])
+        if (p) setPhase(p as Phase)
+        if (m) setMemo(m)
+        setSuggestions(Array.isArray(s) ? s : [])
+      } catch (error) {
+        // 完全分析が失敗しても、先に表示した企業固有の現在地は残す。
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('PR Compass initial analysis error:', error)
+        }
+      } finally {
+        if (active) setAnalysisLoading(false)
+      }
+    }
+
+    void initialize()
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [])
 
   // 最下部へスクロール
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, analysisLoading])
 
   // テキストエリアの高さ自動調整
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -390,9 +465,122 @@ export default function PrCompassPage() {
     el.style.height = `${Math.min(el.scrollHeight, 140)}px`
   }
 
+  /** 準備中のリクエストを含めて、現在の音声を止める */
+  const stopSpeaking = useCallback(() => {
+    speechRequestRef.current += 1
+    speechAbortRef.current?.abort()
+    speechAbortRef.current = null
+
+    if (audioRef.current) {
+      audioRef.current.onended = null
+      audioRef.current.onerror = null
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current)
+      audioUrlRef.current = null
+    }
+    setSpeaking(false)
+  }, [])
+
+  /** 表示済みチャットを渡し、その返答について会話調で話してもらう */
+  const play = useCallback(
+    async (message: Message, context: readonly Message[]) => {
+      const text = message.content.trim()
+      if (!text) return
+
+      stopSpeaking()
+      const requestId = speechRequestRef.current + 1
+      speechRequestRef.current = requestId
+      const controller = new AbortController()
+      speechAbortRef.current = controller
+      setSpeaking(true)
+
+      const finish = () => {
+        if (speechRequestRef.current !== requestId) return
+        speechAbortRef.current = null
+        audioRef.current = null
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current)
+          audioUrlRef.current = null
+        }
+        setSpeaking(false)
+      }
+
+      try {
+        const res = await fetch('/api/pr-compass/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, messages: context.slice(-8) }),
+          signal: controller.signal,
+        })
+        if (res.status === 204 || !res.ok) {
+          finish()
+          return
+        }
+
+        const url = URL.createObjectURL(await res.blob())
+        if (speechRequestRef.current !== requestId) {
+          URL.revokeObjectURL(url)
+          return
+        }
+
+        audioUrlRef.current = url
+        const audio = new Audio(url)
+        audioRef.current = audio
+        audio.onended = finish
+        audio.onerror = finish
+        await audio.play()
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('PR Compass voice playback error:', error)
+        }
+        finish()
+      }
+    },
+    [stopSpeaking],
+  )
+
+  // ONの間は、追加されたすべてのAI返答を1回ずつ音声でも返す。
+  useEffect(() => {
+    if (!autoSpeak) return
+
+    let latestIndex = -1
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.role === 'assistant') {
+        latestIndex = i
+        break
+      }
+    }
+    if (latestIndex < 0 || latestIndex <= lastAutoSpokenIndexRef.current) return
+
+    const latest = messages[latestIndex]
+    if (!latest) return
+    const timeout = window.setTimeout(() => {
+      if (latestIndex <= lastAutoSpokenIndexRef.current) return
+      lastAutoSpokenIndexRef.current = latestIndex
+      void play(latest, messages)
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [autoSpeak, messages, play])
+
+  // ページを離れた後に音声やfetchを残さない。
+  useEffect(
+    () => () => {
+      speechRequestRef.current += 1
+      speechAbortRef.current?.abort()
+      audioRef.current?.pause()
+      if (audioUrlRef.current) URL.revokeObjectURL(audioUrlRef.current)
+    },
+    [],
+  )
+
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || loading || isComplete) return
+    conversationStartedRef.current = true
+    stopSpeaking()
 
     const newMessages: Message[] = [
       ...messages,
@@ -410,9 +598,15 @@ export default function PrCompassPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages }),
       })
-      const { content, phase: p, memo: m, suggestions: s } = await res.json()
+      const {
+        content,
+        phase: p,
+        memo: m,
+        suggestions: s,
+        blocks,
+      } = await res.json()
 
-      setMessages([...newMessages, { role: 'assistant', content }])
+      setMessages([...newMessages, { role: 'assistant', content, blocks }])
       if (p) setPhase(p as Phase)
       if (m) setMemo(m)
       setSuggestions(Array.isArray(s) ? s : [])
@@ -427,7 +621,7 @@ export default function PrCompassPage() {
     } finally {
       setLoading(false)
     }
-  }, [input, loading, isComplete, messages])
+  }, [input, loading, isComplete, messages, stopSpeaking])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 日本語入力の変換確定も Enter なので、変換中は送信しない。
@@ -439,31 +633,6 @@ export default function PrCompassPage() {
     }
   }
 
-  /** 台本を読み上げる。音が出せなくても会話は止めない */
-  const play = useCallback(async (text: string) => {
-    if (!text) return
-    try {
-      setSpeaking(true)
-      const res = await fetch('/api/pr-compass/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-      })
-      if (res.status === 204) return // 音声が無効。画面はそのまま進む
-      const url = URL.createObjectURL(await res.blob())
-      audioRef.current?.pause()
-      const audio = new Audio(url)
-      audioRef.current = audio
-      audio.onended = () => {
-        setSpeaking(false)
-        URL.revokeObjectURL(url)
-      }
-      await audio.play()
-    } catch {
-      setSpeaking(false)
-    }
-  }, [])
-
   /** 話して答える。聞き取った文は入力欄に入れる（勝手に送信しない） */
   const toggleRecording = useCallback(async () => {
     if (recording) {
@@ -471,6 +640,7 @@ export default function PrCompassPage() {
       return
     }
     try {
+      stopSpeaking()
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const recorder = new MediaRecorder(stream)
       const chunks: Blob[] = []
@@ -496,12 +666,20 @@ export default function PrCompassPage() {
     } catch {
       setRecording(false)
     }
-  }, [recording])
+  }, [recording, stopSpeaking])
 
   /** サジェストは入力欄に入れるだけ。押しても送信はしない */
   const applySuggestion = (text: string) => {
     setInput(text)
     textareaRef.current?.focus()
+  }
+
+  let latestAssistant: Message | undefined
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i]?.role === 'assistant') {
+      latestAssistant = messages[i]
+      break
+    }
   }
 
   return (
@@ -529,7 +707,7 @@ export default function PrCompassPage() {
             </div>
           ))}
 
-          {loading && <TypingDots />}
+          {(loading || analysisLoading) && <TypingDots />}
 
           {isComplete && (
             <div className={styles.completeBanner}>
@@ -575,10 +753,16 @@ export default function PrCompassPage() {
               <button
                 type="button"
                 className={styles.voiceBtn}
-                onClick={() => play(speech)}
-                disabled={speaking || !speech}
+                onClick={() => {
+                  if (speaking) {
+                    stopSpeaking()
+                  } else if (latestAssistant) {
+                    void play(latestAssistant, messages)
+                  }
+                }}
+                disabled={!speaking && !latestAssistant}
               >
-                {speaking ? '🔊 読み上げ中…' : '🔊 いまの内容を読み上げる'}
+                {speaking ? '⏹ 音声を止める' : '🔊 この返答について聞く'}
               </button>
               <button
                 type="button"
@@ -591,9 +775,16 @@ export default function PrCompassPage() {
                 <input
                   type="checkbox"
                   checked={autoSpeak}
-                  onChange={(e) => setAutoSpeak(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    if (!checked) {
+                      lastAutoSpokenIndexRef.current = -1
+                      stopSpeaking()
+                    }
+                    setAutoSpeak(checked)
+                  }}
                 />
-                返答を自動で読み上げる
+                AI音声で返答を続ける
               </label>
             </div>
             <div className={styles.inputRow}>

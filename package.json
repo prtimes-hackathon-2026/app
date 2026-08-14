@@ -15,6 +15,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "next typegen && tsc --noEmit",
+    "test:skills": "node --test --experimental-strip-types src/feature/pr-compass/application/hooks/validate-narration-numbers.test.mjs",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm build",
     "db:app:generate": "drizzle-kit generate --config=drizzle/app.config.ts",
     "db:app:migrate": "drizzle-kit migrate --config=drizzle/app.config.ts",

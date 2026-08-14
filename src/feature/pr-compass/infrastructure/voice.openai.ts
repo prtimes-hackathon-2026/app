@@ -13,10 +13,11 @@ import { env } from '@/shared/env'
 const TTS_MODEL = 'gpt-4o-mini-tts'
 const STT_MODEL = 'gpt-4o-mini-transcribe'
 
-/** 営業だが売り込まない。数字の前で一拍おかせる */
-const TONE = `落ち着いた日本語の営業担当として読む。
-早口にしない。数字の前でわずかに間をおく。語尾を上げない。
-売り込まない。事実を淡々と、相手の側に立って伝える。`
+/** 同じチャット画面を見ている伴走者として、読み上げではなく話しかける */
+const TONE = `落ち着いた日本語の広報伴走者として、相手と同じ画面を見ながら自然に話す。
+文章の読み上げ調にせず、短い相づちと自然な間を入れる。早口にしない。
+数字の前後ではわずかに間をおく。質問は押しつけず、返答を待つ話し方にする。
+売り込まず、相手の側に立った温かさは保つ。`
 
 const apiKey = () => env().OPENAI_API_KEY ?? ''
 
@@ -32,7 +33,7 @@ const CACHE_MAX = 60
 /** 読み上げる文 → mp3。作れなければ null */
 export async function speak(
   text: string,
-  voice = 'shimmer',
+  voice = 'marin',
 ): Promise<Buffer | null> {
   const key = apiKey()
   if (!key || !text.trim()) return null

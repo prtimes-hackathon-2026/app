@@ -28,7 +28,7 @@ export type SignIn = (
 
 export function signIn(deps: SignInDeps): SignIn {
   return async (current, company) => {
-    if (current === null) return null
+    if (current === null || current.stage === 'admin') return null
 
     const session = {
       stage: 'signed-in',

@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { salesFlowCasesFeature } from '@/feature/sales-flow-cases'
+
 import { advanceConversation } from './application/advance-conversation'
 import {
   openAiClassifier,
@@ -7,6 +9,7 @@ import {
 } from './infrastructure/language.openai'
 import { drizzleCompanyDirectory } from './infrastructure/company-directory.drizzle'
 import { drizzleInsightRepository } from './infrastructure/insight-repository.drizzle'
+import { composeVoiceCommentary } from './infrastructure/voice-commentary.openai'
 import { listen, speak, voiceReady } from './infrastructure/voice.openai'
 
 export type {
@@ -15,6 +18,7 @@ export type {
 } from './application/advance-conversation'
 export type { Phase } from './domain/conversation'
 export type { StoppedCompany } from './domain/company-directory'
+export type { VoiceContextMessage } from './infrastructure/voice-commentary.openai'
 
 const companies = drizzleCompanyDirectory()
 
@@ -30,9 +34,12 @@ export const prCompassFeature = {
     insights: drizzleInsightRepository(),
     classifier: openAiClassifier(),
     narrator: openAiNarrator(),
+    salesFlowCases: salesFlowCasesFeature,
   }),
   /** 台本を音声にする。作れなければ null を返し、画面は音なしで進む */
   speak,
+  /** 表示済みチャットを踏まえた、音声専用の短い発話を作る */
+  composeVoiceCommentary,
   /** 話した音声を文字にする */
   listen,
   voiceReady,

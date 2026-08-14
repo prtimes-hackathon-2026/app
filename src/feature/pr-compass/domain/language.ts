@@ -1,5 +1,12 @@
 import type { Interest, Objection, Reaction, Reason } from './conversation'
 
+/** Skill ごとに差し替えられる言い換え方針。全体の禁止事項より優先しない。 */
+export type NarrationPolicy = {
+  objective: string
+  instructions: readonly string[]
+  prohibited: readonly string[]
+}
+
 /** 自由入力を、こちらの分岐に落とす */
 export type Classifier = {
   reason(text: string): Promise<Reason>
@@ -19,6 +26,8 @@ export type Narrator = {
     draft: string
     /** 直前までのやり取り。口調を合わせるために渡す */
     history: readonly { role: 'user' | 'assistant'; content: string }[]
+    /** 選択された Skill 固有の目的・手順・禁止事項 */
+    policy?: NarrationPolicy
   }): Promise<string>
 
   /** 左パネルに出す聞き取りメモ。事実と、相手の反応の傾向を自然文で */

@@ -4,23 +4,26 @@ import { authConfig } from '@/shared/env'
 
 import { readSession } from './application/read-session'
 import { signIn } from './application/sign-in'
+import { signInAdmin } from './application/sign-in-admin'
 import { verifyPassword } from './application/verify-password'
 import type { Session, SessionCompany } from './domain/session'
 import { hmacSessionTokenCodec } from './infrastructure/session-token.hmac'
 
 export type {
+  AdminSession,
+  AuthenticatedSession,
   IssuedSession,
   Session,
   SessionCompany,
   SignedInSession,
 } from './domain/session'
-export { isSignedIn } from './domain/session'
+export { isAdmin, isAuthenticated, isSignedIn } from './domain/session'
 
 /**
  * 簡易ログイン。
  *
- * 合言葉を 1 つ照合し、企業を 1 社選ばせて、その企業として画面を使わせるだけの機能。
- * 利用者アカウントも権限も無いので DB を持たず、セッションは署名した Cookie に載せる
+ * 企業用と管理者用の合言葉を照合する簡易ログイン。企業利用者は企業を 1 社選び、
+ * 管理者は管理機能だけを使う。利用者アカウントは持たず、セッションは署名した Cookie に載せる
  * (Cookie の出し入れは HTTP 境界なので app 層の仕事)。
  * 認証ライブラリを入れていない理由は README「簡易ログイン」を参照。
  *
@@ -52,6 +55,11 @@ function build() {
       ttlSeconds: passwordStageTtlSeconds,
     }),
     signIn: signIn({ tokens, ttlSeconds: signedInTtlSeconds }),
+    signInAdmin: signInAdmin({
+      tokens,
+      password: config.adminPassword,
+      ttlSeconds: signedInTtlSeconds,
+    }),
     readSession: readSession(tokens),
   }
 }
@@ -69,6 +77,8 @@ export const authFeature = {
   /** 2 段目: 企業を確定してログインを成立させる。1 段目を通っていなければ null */
   signIn: (current: Session | null, company: SessionCompany) =>
     feature().signIn(current, company),
+  /** 管理者の合言葉を照合し、企業を選ばず管理機能へ入る */
+  signInAdmin: (input: string) => feature().signInAdmin(input),
   /** Cookie の中身からセッションを復元する。読めなければ null */
   readSession: (token: string | undefined) => feature().readSession(token),
 } as const

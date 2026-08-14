@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-import { isSignedIn } from '@/feature/auth'
-import { afterLoginPath, companySelectPath } from '@/shared/auth'
+import { isAdmin, isSignedIn } from '@/feature/auth'
+import { adminPath, afterLoginPath, companySelectPath } from '@/shared/auth'
 
 import { LoginPanel } from './panel'
 import { PasswordForm } from './password-form'
@@ -24,13 +24,14 @@ export const metadata: Metadata = {
 export default async function Page() {
   const session = await currentSession()
   // すでに入っている人をログイン画面に留めない。企業だけ未選択なら 2 段目へ送る
+  if (isAdmin(session)) redirect(adminPath)
   if (isSignedIn(session)) redirect(afterLoginPath)
   if (session !== null) redirect(companySelectPath)
 
   return (
     <LoginPanel
       title="ログイン"
-      description="パスワードを入力してください。次の画面で企業を選ぶとログインが完了します。"
+      description="企業利用者または管理者を選び、パスワードを入力してください。"
     >
       <PasswordForm />
     </LoginPanel>

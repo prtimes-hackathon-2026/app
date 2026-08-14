@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { prCompassFeature, type ChatMessage } from '@/feature/pr-compass'
 
+import { signedInSession } from '../../../session'
+
 export const runtime = 'nodejs'
 
 /**
@@ -15,24 +17,28 @@ export const runtime = 'nodejs'
  */
 export async function POST(req: NextRequest) {
   try {
+    const session = await signedInSession()
+    if (session === null) {
+      return NextResponse.json(
+        { error: 'ログインして企業を選んでください' },
+        { status: 401 },
+      )
+    }
+
     const body = (await req.json()) as {
       messages?: ChatMessage[]
       memo?: string
-      companyId?: number
+      analysisMode?: 'initial' | 'full'
     }
 
-    // 対象企業。画面から渡されなければ既定値を使う
-    const companyId =
-      Number(body.companyId) ||
-      Number(process.env.PR_COMPASS_COMPANY_ID) ||
-      17170
-
     const result = await prCompassFeature.advanceConversation({
-      companyId,
+      // 企業はリクエスト本文や固定値ではなく、ログイン時に選んだセッションから確定する。
+      companyId: session.company.id,
       messages: (body.messages ?? []).filter(
         (m) => m.role === 'user' || m.role === 'assistant',
       ),
       memo: body.memo ?? '',
+      insightMode: body.analysisMode === 'initial' ? 'initial' : 'full',
     })
 
     return NextResponse.json(result)

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   // 合言葉を通したセッションが無ければ、ここから先には進ませない
   const session = await currentSession()
-  if (session === null) {
+  if (session === null || session.stage === 'admin') {
     return errorResponse(401, '先にパスワードを入力してください')
   }
 

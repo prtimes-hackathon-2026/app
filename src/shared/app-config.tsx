@@ -128,6 +128,15 @@ export const navigation: NavItem[] = [
   },
 ]
 
+/** 管理者には管理対象だけを見せ、企業向けの画面へ誘導しない。 */
+export const adminNavigation: NavItem[] = [
+  {
+    label: '営業フロー事例',
+    href: '/settings/sales-flow-cases',
+    icon: 'settings',
+  },
+]
+
 export const appShellConfig = {
   brand,
   navigation,

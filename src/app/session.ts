@@ -5,12 +5,21 @@ import { redirect } from 'next/navigation'
 
 import {
   authFeature,
+  isAdmin,
+  isAuthenticated,
   isSignedIn,
+  type AdminSession,
+  type AuthenticatedSession,
   type IssuedSession,
   type Session,
   type SignedInSession,
 } from '@/feature/auth'
-import { loginPath, sessionCookieName } from '@/shared/auth'
+import {
+  adminPath,
+  afterLoginPath,
+  loginPath,
+  sessionCookieName,
+} from '@/shared/auth'
 
 /**
  * セッションと Cookie の境界。
@@ -36,8 +45,24 @@ export async function currentSession(): Promise<Session | null> {
  */
 export async function requireSignedIn(): Promise<SignedInSession> {
   const session = await currentSession()
+  if (isAdmin(session)) redirect(adminPath)
   if (!isSignedIn(session)) redirect(loginPath)
   return session
+}
+
+/** 企業利用者または管理者としてログイン済みであることを求める。 */
+export async function requireAuthenticated(): Promise<AuthenticatedSession> {
+  const session = await currentSession()
+  if (!isAuthenticated(session)) redirect(loginPath)
+  return session
+}
+
+/** 管理者であることを求める。企業利用者は管理画面へ入れない。 */
+export async function requireAdmin(): Promise<AdminSession> {
+  const session = await currentSession()
+  if (isAdmin(session)) return session
+  if (isSignedIn(session)) redirect(afterLoginPath)
+  redirect(loginPath)
 }
 
 /**
