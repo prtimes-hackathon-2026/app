@@ -61,6 +61,46 @@
   gap: var(--s-4);
 }
 
+.roleFieldset {
+  padding: 0;
+  border: 0;
+}
+
+.labelText {
+  margin-bottom: var(--s-2);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.roleOptions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-2);
+}
+
+.roleOption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  padding: var(--s-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+}
+
+.roleOption[data-selected='true'] {
+  color: var(--c-primary);
+  background: var(--c-surface-muted);
+  border-color: var(--c-primary);
+}
+
+.roleOption input {
+  accent-color: var(--c-primary);
+}
+
 .label {
   display: flex;
   flex-direction: column;

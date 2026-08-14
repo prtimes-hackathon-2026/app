@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
+import { isAdmin } from '@/feature/auth'
 import { prCompassFeature } from '@/feature/pr-compass'
-import { loginPath } from '@/shared/auth'
+import { adminPath, loginPath } from '@/shared/auth'
 
 import { CompanyPicker } from './company-picker'
 import { LoginPanel } from '../panel'
@@ -25,6 +26,7 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   const session = await currentSession()
+  if (isAdmin(session)) redirect(adminPath)
   if (session === null) redirect(loginPath)
 
   const companies = await prCompassFeature.findStoppedCompanies()

@@ -19,6 +19,7 @@ import { writeSessionCookie } from '../../../session'
 
 const bodySchema = z.object({
   password: z.string().min(1),
+  role: z.enum(['company', 'admin']).default('company'),
 })
 
 export async function POST(request: Request) {
@@ -32,7 +33,10 @@ export async function POST(request: Request) {
     return errorResponse(400, 'パスワードを入力してください')
   }
 
-  const issued = await authFeature.verifyPassword(parsed.data.password)
+  const issued =
+    parsed.data.role === 'admin'
+      ? await authFeature.signInAdmin(parsed.data.password)
+      : await authFeature.verifyPassword(parsed.data.password)
   // 合っていない理由は返さない (長さや惜しさが分かる形にしない)
   if (issued === null) {
     return errorResponse(401, 'パスワードが違います')

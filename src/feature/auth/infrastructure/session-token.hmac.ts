@@ -32,6 +32,10 @@ const payloadSchema = z.discriminatedUnion('stage', [
     companyId: z.int().nonnegative(),
     companyName: z.string().nullable(),
   }),
+  z.object({
+    stage: z.literal('admin'),
+    exp: z.int().positive(),
+  }),
 ])
 
 type Payload = z.infer<typeof payloadSchema>
@@ -97,25 +101,25 @@ export function hmacSessionTokenCodec(secret: string): SessionTokenCodec {
 
 function toPayload(session: Session): Payload {
   const exp = session.expiresAt.getTime()
-  return session.stage === 'password'
-    ? { stage: 'password', exp }
-    : {
-        stage: 'signed-in',
-        exp,
-        companyId: session.company.id,
-        companyName: session.company.name,
-      }
+  if (session.stage === 'password') return { stage: 'password', exp }
+  if (session.stage === 'admin') return { stage: 'admin', exp }
+  return {
+    stage: 'signed-in',
+    exp,
+    companyId: session.company.id,
+    companyName: session.company.name,
+  }
 }
 
 function toSession(payload: Payload): Session {
   const expiresAt = new Date(payload.exp)
-  return payload.stage === 'password'
-    ? { stage: 'password', expiresAt }
-    : {
-        stage: 'signed-in',
-        company: { id: payload.companyId, name: payload.companyName },
-        expiresAt,
-      }
+  if (payload.stage === 'password') return { stage: 'password', expiresAt }
+  if (payload.stage === 'admin') return { stage: 'admin', expiresAt }
+  return {
+    stage: 'signed-in',
+    company: { id: payload.companyId, name: payload.companyName },
+    expiresAt,
+  }
 }
 
 function parseJson(value: string): unknown {

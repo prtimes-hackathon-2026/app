@@ -1,8 +1,10 @@
-import { appShellConfig } from '@/shared/app-config'
+import { isAdmin } from '@/feature/auth'
+import { adminNavigation, appShellConfig } from '@/shared/app-config'
+import { adminPath } from '@/shared/auth'
 import { AppShell } from '@/shared/ui'
 
 import { LogoutButton } from './logout-button'
-import { requireSignedIn } from '../session'
+import { requireAuthenticated } from '../session'
 
 /**
  * 管理画面の共通レイアウト。
@@ -18,17 +20,36 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const session = await requireSignedIn()
+  const session = await requireAuthenticated()
+  const admin = isAdmin(session)
+  const shellConfig = admin
+    ? {
+        ...appShellConfig,
+        brand: { ...appShellConfig.brand, href: adminPath },
+        navigation: adminNavigation,
+        actions: [],
+        support: undefined,
+        showChat: false,
+      }
+    : appShellConfig
 
   return (
     <AppShell
-      {...appShellConfig}
+      {...shellConfig}
       // 既定の名乗り (app-config の見本) を、ログインした企業で上書きする
-      account={{
-        name: session.company.name ?? `企業ID ${session.company.id}`,
-        meta: `企業ID：${session.company.id}`,
-        href: '/settings/company',
-      }}
+      account={
+        admin
+          ? {
+              name: '管理者',
+              meta: '営業フロー管理',
+              href: adminPath,
+            }
+          : {
+              name: session.company.name ?? `企業ID ${session.company.id}`,
+              meta: `企業ID：${session.company.id}`,
+              href: '/settings/company',
+            }
+      }
       accountAction={<LogoutButton />}
     >
       {children}

@@ -30,6 +30,8 @@ export type AppShellProps = {
   account?: AccountInfo
   /** アカウントの右隣に置く操作 (ログアウトなど) */
   accountAction?: ReactNode
+  /** 管理者画面など、企業向けチャットを置かない画面では false */
+  showChat?: boolean
   children: ReactNode
 }
 
@@ -46,6 +48,7 @@ export function AppShell({
   support,
   account,
   accountAction,
+  showChat = true,
   children,
 }: AppShellProps) {
   const pathname = usePathname()
@@ -119,7 +122,7 @@ export function AppShell({
         </div>
       </div>
 
-      <ChatFab />
+      {showChat && <ChatFab />}
     </div>
   )
 }

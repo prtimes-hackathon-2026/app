@@ -9,6 +9,7 @@ import { Card, CardBody, PageHeader, Stack } from '@/shared/ui'
 
 import { SalesFlowCaseManager } from './case-manager'
 import styles from './page.module.css'
+import { requireAdmin } from '../../../session'
 
 export const metadata: Metadata = {
   title: '営業フロー事例',
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function SalesFlowCasesPage() {
+  await requireAdmin()
   const cases = await salesFlowCasesFeature.listSalesFlowCases()
   const reasonOptions = salesFlowReasons.map((value) => ({
     value,

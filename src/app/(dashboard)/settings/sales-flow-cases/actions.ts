@@ -8,7 +8,7 @@ import {
   type SalesFlowCaseInput,
 } from '@/feature/sales-flow-cases'
 
-import { requireSignedIn } from '../../../session'
+import { requireAdmin } from '../../../session'
 
 const PAGE_PATH = '/settings/sales-flow-cases'
 
@@ -26,7 +26,7 @@ export async function saveSalesFlowCaseAction(
   _state: SaveSalesFlowCaseState,
   formData: FormData,
 ): Promise<SaveSalesFlowCaseState> {
-  await requireSignedIn()
+  await requireAdmin()
 
   const input: SalesFlowCaseInput = {
     ...(value(formData, 'id') ? { id: value(formData, 'id') } : {}),
@@ -73,7 +73,7 @@ export async function saveSalesFlowCaseAction(
 }
 
 export async function toggleSalesFlowCaseAction(formData: FormData) {
-  await requireSignedIn()
+  await requireAdmin()
   const id = value(formData, 'id')
   const enabled = value(formData, 'enabled') === 'true'
   try {

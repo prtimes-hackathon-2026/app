@@ -122,10 +122,18 @@ export const navigation: NavItem[] = [
     children: [
       { label: 'アカウント', href: '/settings/account' },
       { label: '企業情報', href: '/settings/company' },
-      { label: '営業フロー事例', href: '/settings/sales-flow-cases' },
       { label: '通知', href: '/settings/notifications' },
       { label: 'お問い合わせ', href: '/settings/support' },
     ],
+  },
+]
+
+/** 管理者には管理対象だけを見せ、企業向けの画面へ誘導しない。 */
+export const adminNavigation: NavItem[] = [
+  {
+    label: '営業フロー事例',
+    href: '/settings/sales-flow-cases',
+    icon: 'settings',
   },
 ]
 

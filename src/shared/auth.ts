@@ -15,3 +15,6 @@ export const companySelectPath = '/login/company'
 
 /** ログインが成立したあとに見せる画面 */
 export const afterLoginPath = '/dashboard'
+
+/** 管理者ログイン後に見せる画面 */
+export const adminPath = '/settings/sales-flow-cases'

@@ -86,12 +86,15 @@ export function shouldMigrateOnStartup(): boolean {
 const authSchema = z.object({
   // 合言葉。既定値はデモ用で、公開する環境では必ず差し替える
   AUTH_PASSWORD: z.string().min(1).default('prtimes'),
+  // 管理者用の合言葉。企業用とは分け、管理機能へ直接入る
+  AUTH_ADMIN_PASSWORD: z.string().min(1).default('admin'),
   // セッション Cookie の署名鍵。未設定でも動くが、production では設定する (下の authConfig)
   AUTH_SESSION_SECRET: z.string().min(32).optional(),
 })
 
 export type AuthConfig = {
   readonly password: string
+  readonly adminPassword: string
   readonly sessionSecret: string
 }
 
@@ -159,6 +162,7 @@ export function authConfig(): AuthConfig {
 
   cachedAuth = {
     password: parsed.data.AUTH_PASSWORD,
+    adminPassword: parsed.data.AUTH_ADMIN_PASSWORD,
     sessionSecret: secret ?? fallback,
   }
   return cachedAuth
