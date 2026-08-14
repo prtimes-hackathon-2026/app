@@ -11,7 +11,7 @@ import { requireSignedIn } from '../session'
  *
  * ログインの確認もここが持つ。配下のページが増えても守り漏れが起きないうえ、
  * ヘッダーに出す名乗りをセッションから作れる。
- * 企業のデータを直接読むページ (PR羅針盤) は、それに頼らず自分でも確かめる。
+ * 企業のデータを直接読むページ (目的設計) は、それに頼らず自分でも確かめる。
  */
 export default async function DashboardLayout({
   children,
