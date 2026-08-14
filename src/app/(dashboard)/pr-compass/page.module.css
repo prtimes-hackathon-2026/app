@@ -312,27 +312,33 @@
   .page {
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
-    height: auto;
-    overflow: visible;
+    height: calc(100dvh - var(--header-h) - 44px);
+    overflow: hidden;
   }
 
   .sidebar {
-    max-height: 220px;
+    max-height: 120px;
     border-right: none;
     border-bottom: 1px solid var(--c-border);
   }
 
   .chat {
-    height: calc(100dvh - var(--header-h) - 44px - 220px);
+    height: auto;
   }
 }
 
 /* サジェスト。選ばせるためではなく、書き出しの助けとして置く */
 .suggestions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: var(--s-2);
   margin-bottom: var(--s-3);
+  padding-bottom: var(--s-1);
+  scrollbar-width: none;
+}
+.suggestions::-webkit-scrollbar {
+  display: none;
 }
 
 .suggestion {
@@ -345,6 +351,8 @@
   border-radius: var(--r-full, 999px);
   cursor: pointer;
   transition: 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .suggestion:hover {
