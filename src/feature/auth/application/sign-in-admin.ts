@@ -1,19 +1,19 @@
-import { matchesPassword } from '../domain/password'
-import { expiresIn, type IssuedSession } from '../domain/session'
+import { expiresIn, type IssuedSession, type Session } from '../domain/session'
 import type { SessionTokenCodec } from '../domain/session-token'
 
-/** 管理者用の共有パスワードを照合し、管理者セッションを直接発行する。 */
+/** 管理者用の合言葉を通した選択セッションから、管理者セッションを発行する。 */
 export type SignInAdminDeps = {
   readonly tokens: SessionTokenCodec
-  readonly password: string
   readonly ttlSeconds: number
 }
 
-export type SignInAdmin = (input: string) => Promise<IssuedSession | null>
+export type SignInAdmin = (
+  current: Session | null,
+) => Promise<IssuedSession | null>
 
 export function signInAdmin(deps: SignInAdminDeps): SignInAdmin {
-  return async (input) => {
-    if (!matchesPassword(input, deps.password)) return null
+  return async (current) => {
+    if (current?.stage !== 'password' || !current.adminAllowed) return null
 
     const session = {
       stage: 'admin',

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
 import type { StoppedCompany } from '@/feature/pr-compass'
-import { afterLoginPath } from '@/shared/auth'
+import { adminPath, afterLoginPath } from '@/shared/auth'
 import { blank, formatDate, formatNumber } from '@/shared/format'
 import { Button } from '@/shared/ui'
 
@@ -19,14 +19,21 @@ import styles from '../login.module.css'
  */
 export function CompanyPicker({
   companies,
+  canSelectAdmin,
 }: {
   companies: readonly StoppedCompany[]
+  canSelectAdmin: boolean
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function signIn(companyId: number) {
+  function signIn(
+    body:
+      | { readonly role: 'company'; readonly companyId: number }
+      | { readonly role: 'admin' },
+    destination: string,
+  ) {
     // 二重送信の防止
     if (isPending) return
     setError(null)
@@ -37,7 +44,7 @@ export function CompanyPicker({
         response = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ companyId }),
+          body: JSON.stringify(body),
         })
       } catch {
         setError('通信に失敗しました。もう一度お試しください。')
@@ -53,12 +60,12 @@ export function CompanyPicker({
         return
       }
 
-      router.push(afterLoginPath)
+      router.push(destination)
       router.refresh()
     })
   }
 
-  if (companies.length === 0) {
+  if (companies.length === 0 && !canSelectAdmin) {
     return (
       <p className={styles.note}>
         選べる企業が見つかりませんでした。データベースの接続を確認してください。
@@ -74,7 +81,7 @@ export function CompanyPicker({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th scope="col">企業</th>
+              <th scope="col">ログイン先</th>
               <th scope="col">業種</th>
               <th scope="col" className={styles.num}>
                 配信本数
@@ -86,6 +93,25 @@ export function CompanyPicker({
             </tr>
           </thead>
           <tbody>
+            {canSelectAdmin && (
+              <tr className={styles.adminRow}>
+                <th scope="row">管理者</th>
+                <td colSpan={3} className={styles.adminMeta}>
+                  営業フロー事例を管理する
+                </td>
+                <td>
+                  <Button
+                    size="sm"
+                    variant="accent"
+                    iconEnd="chevronRight"
+                    disabled={isPending}
+                    onClick={() => signIn({ role: 'admin' }, adminPath)}
+                  >
+                    管理者でログイン
+                  </Button>
+                </td>
+              </tr>
+            )}
             {companies.map((company) => (
               <tr key={company.companyId}>
                 <th scope="row">
@@ -104,7 +130,12 @@ export function CompanyPicker({
                     variant="accent"
                     iconEnd="chevronRight"
                     disabled={isPending}
-                    onClick={() => signIn(company.companyId)}
+                    onClick={() =>
+                      signIn(
+                        { role: 'company', companyId: company.companyId },
+                        afterLoginPath,
+                      )
+                    }
                   >
                     この企業でログイン
                   </Button>

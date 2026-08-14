@@ -20,6 +20,8 @@ export type SessionCompany = {
 /** 合言葉だけ通った状態。まだどの企業のデータも見せない */
 export type PasswordSession = {
   readonly stage: 'password'
+  /** 管理者用の合言葉を通した場合だけ、次の画面に管理者を表示する */
+  readonly adminAllowed: boolean
   readonly expiresAt: Date
 }
 

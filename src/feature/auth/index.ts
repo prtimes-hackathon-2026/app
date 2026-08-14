@@ -52,12 +52,12 @@ function build() {
     verifyPassword: verifyPassword({
       tokens,
       password: config.password,
+      adminPassword: config.adminPassword,
       ttlSeconds: passwordStageTtlSeconds,
     }),
     signIn: signIn({ tokens, ttlSeconds: signedInTtlSeconds }),
     signInAdmin: signInAdmin({
       tokens,
-      password: config.adminPassword,
       ttlSeconds: signedInTtlSeconds,
     }),
     readSession: readSession(tokens),
@@ -77,8 +77,8 @@ export const authFeature = {
   /** 2 段目: 企業を確定してログインを成立させる。1 段目を通っていなければ null */
   signIn: (current: Session | null, company: SessionCompany) =>
     feature().signIn(current, company),
-  /** 管理者の合言葉を照合し、企業を選ばず管理機能へ入る */
-  signInAdmin: (input: string) => feature().signInAdmin(input),
+  /** 管理者用の合言葉を通した状態から、管理者としてログインする */
+  signInAdmin: (current: Session | null) => feature().signInAdmin(current),
   /** Cookie の中身からセッションを復元する。読めなければ null */
   readSession: (token: string | undefined) => feature().readSession(token),
 } as const

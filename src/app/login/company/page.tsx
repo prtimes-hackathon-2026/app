@@ -10,9 +10,10 @@ import { LoginPanel } from '../panel'
 import { currentSession } from '../../session'
 
 /**
- * ログインの 2 段目 — どの企業として使うかを選ぶ画面。
+ * ログインの 2 段目 — 企業または管理者のどちらとして使うかを選ぶ画面。
  *
- * ここで選んだ企業がセッションに載り、以降の画面はその企業のデータしか見せない。
+ * 企業を選ぶと企業がセッションに載り、以降の画面はその企業のデータしか見せない。
+ * 管理者用の合言葉を通した場合だけ、企業一覧の先頭に管理者を表示する。
  * 一覧は 目的設計 の対象と同じ「配信が止まっている企業」で、
  * 認証の窓口をこの一覧に限ることで、任意の企業 ID で入られないようにしている。
  *
@@ -34,10 +35,13 @@ export default async function Page() {
   return (
     <LoginPanel
       title="企業を選ぶ"
-      description="選んだ企業として管理画面を使います。目的設計 の対話もこの企業のデータで始まります。"
+      description="ログイン先を選んでください。企業を選ぶと、目的設計の対話もその企業のデータで始まります。"
       wide
     >
-      <CompanyPicker companies={companies} />
+      <CompanyPicker
+        companies={companies}
+        canSelectAdmin={session.stage === 'password' && session.adminAllowed}
+      />
     </LoginPanel>
   )
 }

@@ -31,7 +31,7 @@ export default async function Page() {
   return (
     <LoginPanel
       title="ログイン"
-      description="企業利用者または管理者を選び、パスワードを入力してください。"
+      description="パスワードを入力してください。次の画面で利用する企業を選びます。"
     >
       <PasswordForm />
     </LoginPanel>
