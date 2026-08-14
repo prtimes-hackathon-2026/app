@@ -11,6 +11,7 @@ import type { Block } from '../domain/block'
 import type { Insight } from '../domain/insight'
 import type { InsightRepository } from '../domain/insight-repository'
 import type { Classifier, Narrator } from '../domain/language'
+import { readKeyPoints } from '../infrastructure/article-reader'
 import { toScript } from '../infrastructure/voice.openai'
 
 import {
@@ -145,25 +146,57 @@ export function advanceConversation(deps: {
     )
 
     const history = messages.slice(-6)
-    const spoken = await deps.narrator.speak({ facts, draft, history })
 
-    const nextMemo = await deps.narrator.memo({
-      facts,
-      history,
-      previous: memo,
-    })
+    // 記事読み込み・言い換え・メモ生成は互いに独立しているので並行する。
+    // 記事取得が失敗しても、従来どおりリンクだけを出して会話は止めない。
+    const [enriched, spoken, nextMemo] = await Promise.all([
+      withKeyPoints(blocks, [text, draft].filter(Boolean).join('\n')),
+      deps.narrator.speak({ facts, draft, history }),
+      deps.narrator.memo({
+        facts,
+        history,
+        previous: memo,
+      }),
+    ])
 
     return {
       content: spoken,
       suggestions: suggestions ?? [],
       speech: toScript(spoken),
-      blocks: blocks ?? [],
+      blocks: enriched,
       // 書きに行くか、人に渡すかが決まったときだけ閉じる。
       // 断られただけで閉じてしまうと、粘る前に入力欄が消える
       phase: state.finished ? 'complete' : phaseOf(step),
       memo: nextMemo,
     }
   }
+}
+
+/** 先頭の記事だけ本文を読み、要点を添えて返す */
+async function withKeyPoints(
+  blocks: readonly Block[] | undefined,
+  context: string,
+): Promise<readonly Block[]> {
+  if (!blocks?.length) return []
+
+  const articleIndex = blocks.findIndex(
+    (block) => block.type === 'articles' && block.items.length > 0,
+  )
+  if (articleIndex < 0) return blocks
+
+  const block = blocks[articleIndex]
+  if (block?.type !== 'articles') return blocks
+  const [first, ...rest] = block.items
+  if (!first) return blocks
+
+  const points = await readKeyPoints(first.url, context)
+  if (!points.length) return blocks
+
+  return blocks.map((item, index) =>
+    index === articleIndex
+      ? { ...block, items: [{ ...first, points }, ...rest] }
+      : item,
+  )
 }
 
 /** 段ごとに、どの下書きを出すかを決める */

@@ -60,7 +60,13 @@ export type ChecklistBlock = {
 export type ArticlesBlock = {
   type: 'articles'
   title: string
-  items: readonly { title: string; url: string; why: string }[]
+  items: readonly {
+    title: string
+    url: string
+    why: string
+    /** 記事を実際に読んで取り出した要点。読めなければ空 */
+    points?: readonly string[]
+  }[]
 }
 
 export type Block =
