@@ -198,6 +198,23 @@ function Blocks({ blocks }: { blocks?: Block[] }) {
   )
 }
 
+/**
+ * 本文は1本の文字列で届く。段落は空行、箇条書きは改行で区切られているので、
+ * そのまま流し込むと HTML が改行を潰して1段落に見えてしまう。ここで組み直す。
+ */
+function Paragraphs({ text }: { text: string }) {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+  return paragraphs.map((p, i) => (
+    <p key={i} className={styles.paragraph}>
+      {p}
+    </p>
+  ))
+}
+
 type Phase = 'discovery' | 'free_talk' | 'proposal' | 'complete'
 
 const PHASE_LABELS: Record<Phase, string> = {
@@ -248,11 +265,20 @@ function MemoPanel({
       </div>
 
       {memo ? (
-        <p
+        // メモは「・」始まりの1行1項目で届く。行ごとに組まないと1行に繋がって読めない
+        <div
           className={`${styles.memoBody} ${loading ? styles.memoUpdating : ''}`}
         >
-          {memo}
-        </p>
+          {memo
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line, i) => (
+              <p key={i} className={styles.memoItem}>
+                {line}
+              </p>
+            ))}
+        </div>
       ) : (
         <div className={styles.memoEmpty}>
           <div className={styles.memoEmptyIcon}>
@@ -470,7 +496,7 @@ export default function PrCompassPage() {
                 {m.role === 'assistant' ? 'PR TIMES 広報伴走AI' : 'あなた'}
               </p>
               <div className={styles.bubbleInner}>
-                {m.content}
+                <Paragraphs text={m.content} />
                 {m.role === 'assistant' && <Blocks blocks={m.blocks} />}
               </div>
             </div>
