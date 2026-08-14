@@ -128,8 +128,10 @@ export function advanceConversation(deps: {
     const requestStartedAt = performance.now()
     const timings: Record<string, number> = {}
     const step = deriveStep(messages)
+    // 初回こそ、選択企業の現在地だけでなく同業比較まで返す。
+    // `initial` は高速だが比較指標を空にするため、最初の価値提示が欠けてしまう。
     const insight = await measured(timings, 'insights', () =>
-      deps.insights.load(companyId, step === 'diagnosis' ? 'initial' : 'full'),
+      deps.insights.load(companyId, 'full'),
     )
     if (!insight) {
       return {
