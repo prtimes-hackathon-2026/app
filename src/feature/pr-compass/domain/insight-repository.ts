@@ -1,6 +1,11 @@
 import type { Insight } from './insight'
 
+export type InsightLoadMode = 'initial' | 'full'
+
 export type InsightRepository = {
-  /** 対象企業の現在地と、同業の実測値を一式そろえる */
-  load(companyId: number): Promise<Insight | null>
+  /**
+   * initial は初回表示に必要な企業の現在地だけを返す。
+   * full は後続の提案に必要な同業の実測値まで一式そろえる。
+   */
+  load(companyId: number, mode?: InsightLoadMode): Promise<Insight | null>
 }

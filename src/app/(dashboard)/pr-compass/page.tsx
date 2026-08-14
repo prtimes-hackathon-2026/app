@@ -363,12 +363,25 @@ export default function PrCompassPage() {
 
   // 初回AIメッセージを取得
   useEffect(() => {
+    const startedAt = performance.now()
     fetch('/api/pr-compass/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ messages: [] }),
     })
-      .then((r) => r.json())
+      .then(async (response) => {
+        const payload = await response.json()
+        console.info(
+          '[pr-compass:timing]',
+          JSON.stringify({
+            stage: 'initial-fetch',
+            status: response.status,
+            durationMs: Math.round(performance.now() - startedAt),
+          }),
+        )
+        if (!response.ok) throw new Error(`chat failed: ${response.status}`)
+        return payload
+      })
       .then(({ content, phase: p, memo: m, suggestions: s, blocks }) => {
         setMessages([{ role: 'assistant', content, blocks }])
         if (p) setPhase(p as Phase)

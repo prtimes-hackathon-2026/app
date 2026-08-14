@@ -106,13 +106,31 @@ export type AdvanceConversation = (
   input: AdvanceInput,
 ) => Promise<AdvanceResult>
 
+async function measured<T>(
+  timings: Record<string, number>,
+  name: string,
+  work: () => Promise<T>,
+): Promise<T> {
+  const startedAt = performance.now()
+  try {
+    return await work()
+  } finally {
+    timings[name] = Math.round(performance.now() - startedAt)
+  }
+}
+
 export function advanceConversation(deps: {
   insights: InsightRepository
   classifier: Classifier
   narrator: Narrator
 }): AdvanceConversation {
   return async ({ companyId, messages, memo = '' }) => {
-    const insight = await deps.insights.load(companyId)
+    const requestStartedAt = performance.now()
+    const timings: Record<string, number> = {}
+    const step = deriveStep(messages)
+    const insight = await measured(timings, 'insights', () =>
+      deps.insights.load(companyId, step === 'diagnosis' ? 'initial' : 'full'),
+    )
     if (!insight) {
       return {
         content:
@@ -125,7 +143,6 @@ export function advanceConversation(deps: {
       }
     }
 
-    const step = deriveStep(messages)
     const text = lastUserText(messages)
 
     const state: ConversationState = {
@@ -137,27 +154,55 @@ export function advanceConversation(deps: {
       finished: false,
     }
 
-    const { draft, facts, suggestions, blocks } = await route(
-      step,
-      text,
-      insight,
-      state,
-      deps.classifier,
+    const { draft, facts, suggestions, blocks } = await measured(
+      timings,
+      'route',
+      () => route(step, text, insight, state, deps.classifier),
     )
 
     const history = messages.slice(-6)
 
-    // 記事読み込み・言い換え・メモ生成は互いに独立しているので並行する。
-    // 記事取得が失敗しても、従来どおりリンクだけを出して会話は止めない。
-    const [enriched, spoken, nextMemo] = await Promise.all([
-      withKeyPoints(blocks, [text, draft].filter(Boolean).join('\n')),
-      deps.narrator.speak({ facts, draft, history }),
-      deps.narrator.memo({
-        facts,
-        history,
-        previous: memo,
-      }),
-    ])
+    let enriched: readonly Block[]
+    let spoken: string
+    let nextMemo: string
+
+    if (step === 'diagnosis') {
+      // 初回は入力がまだ無く、下書きも事実だけで完成している。
+      // LLMの言い換えを待たず、そのまま返して初回表示を優先する。
+      enriched = blocks ?? []
+      spoken = draft
+      nextMemo = ''
+      timings.articles = 0
+      timings.narrator = 0
+      timings.memo = 0
+    } else {
+      // 記事読み込み・言い換え・メモ生成は互いに独立しているので並行する。
+      // 記事取得が失敗しても、従来どおりリンクだけを出して会話は止めない。
+      const generated = await Promise.all([
+        measured(timings, 'articles', () =>
+          withKeyPoints(blocks, [text, draft].filter(Boolean).join('\n')),
+        ),
+        measured(timings, 'narrator', () =>
+          deps.narrator.speak({ facts, draft, history }),
+        ),
+        measured(timings, 'memo', () =>
+          deps.narrator.memo({
+            facts,
+            history,
+            previous: memo,
+          }),
+        ),
+      ])
+      enriched = generated[0]
+      spoken = generated[1]
+      nextMemo = generated[2]
+    }
+
+    timings.total = Math.round(performance.now() - requestStartedAt)
+    console.info(
+      '[pr-compass:timing]',
+      JSON.stringify({ companyId, step, ...timings }),
+    )
 
     return {
       content: spoken,

@@ -23,15 +23,52 @@ import type { InsightRepository } from '../domain/insight-repository'
  * release_statistic と webclipping_list にインデックスが無いため、
  * 大量結合を避ける形にしてある。
  */
-const TTL_MS = 30 * 60 * 1000
+const INDUSTRY_TTL_MS = 24 * 60 * 60 * 1000
+const COMPANY_TTL_MS = 60 * 1000
 const cache = new Map<string, { at: number; value: unknown }>()
+const inFlight = new Map<string, Promise<unknown>>()
 
-async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+async function cached<T>(
+  key: string,
+  load: () => Promise<T>,
+  ttlMs = INDUSTRY_TTL_MS,
+): Promise<T> {
   const hit = cache.get(key)
-  if (hit && Date.now() - hit.at < TTL_MS) return hit.value as T
-  const value = await load()
-  cache.set(key, { at: Date.now(), value })
-  return value
+  if (hit && Date.now() - hit.at < ttlMs) {
+    console.info(
+      '[pr-compass:cache]',
+      JSON.stringify({ key, status: 'hit', durationMs: 0 }),
+    )
+    return hit.value as T
+  }
+
+  const pending = inFlight.get(key)
+  if (pending) {
+    console.info(
+      '[pr-compass:cache]',
+      JSON.stringify({ key, status: 'in-flight', durationMs: 0 }),
+    )
+    return pending as Promise<T>
+  }
+
+  const startedAt = performance.now()
+  const request = load()
+    .then((value) => {
+      cache.set(key, { at: Date.now(), value })
+      console.info(
+        '[pr-compass:cache]',
+        JSON.stringify({
+          key,
+          status: 'miss',
+          durationMs: Math.round(performance.now() - startedAt),
+        }),
+      )
+      return value
+    })
+    .finally(() => inFlight.delete(key))
+
+  inFlight.set(key, request)
+  return request
 }
 
 const num = (v: unknown): number => Number(v ?? 0)
@@ -51,48 +88,63 @@ async function rows<T = Record<string, unknown>>(
 
 // ─────────────────────────────────────────── 現在地
 
-async function loadDiagnosis(companyId: number): Promise<Diagnosis | null> {
-  const [company] = await rows(sql`
-    SELECT c.company_id, c.company_name, c.industry_id,
-           COALESCE(i.industry_name, '') AS industry_name,
-           LEFT(COALESCE(c.description, ''), 300) AS description
-      FROM company c
-      LEFT JOIN industry i ON i.industry_id = c.industry_id
-     WHERE c.company_id = ${companyId}
-  `)
-  if (!company) return null
+function loadDiagnosis(companyId: number): Promise<Diagnosis | null> {
+  return cached(
+    `diagnosis:${companyId}`,
+    async () => {
+      // 会社・配信集計・直近タイトルを1往復で取得する。以前は3クエリを直列実行していた。
+      const [company] = await rows(sql`
+        SELECT c.company_id, c.company_name, c.industry_id,
+               COALESCE(i.industry_name, '') AS industry_name,
+               LEFT(COALESCE(c.description, ''), 300) AS description,
+               COALESCE(r.total, 0)::int AS total,
+               r.last_at,
+               COALESCE(r.recent_titles, ARRAY[]::text[]) AS recent_titles
+          FROM company c
+          LEFT JOIN industry i ON i.industry_id = c.industry_id
+          LEFT JOIN LATERAL (
+            SELECT COUNT(*)::int AS total,
+                   MAX(release.created_at) AS last_at,
+                   ARRAY(
+                     SELECT recent.title
+                       FROM release recent
+                      WHERE recent.company_id = c.company_id
+                      ORDER BY recent.created_at DESC
+                      LIMIT 3
+                   ) AS recent_titles
+              FROM release
+             WHERE release.company_id = c.company_id
+          ) r ON TRUE
+         WHERE c.company_id = ${companyId}
+      `)
+      if (!company) return null
 
-  const [agg] = await rows(sql`
-    SELECT COUNT(*)::int AS total, MAX(created_at) AS last_at
-      FROM release WHERE company_id = ${companyId}
-  `)
+      const lastAt = company.last_at ? new Date(String(company.last_at)) : null
+      const recentTitles = Array.isArray(company.recent_titles)
+        ? company.recent_titles.map(String).filter(Boolean)
+        : []
 
-  const recent = await rows(sql`
-    SELECT title FROM release
-     WHERE company_id = ${companyId}
-     ORDER BY created_at DESC LIMIT 3
-  `)
-
-  const lastAt = agg?.last_at ? new Date(String(agg.last_at)) : null
-
-  return {
-    companyId: num(company.company_id),
-    companyName: String(company.company_name ?? ''),
-    industryId: num(company.industry_id),
-    industryName: String(company.industry_name ?? ''),
-    description: String(company.description ?? ''),
-    totalReleases: num(agg?.total),
-    lastReleasedAt: lastAt,
-    stoppedMonths: lastAt
-      ? Math.max(
-          0,
-          Math.round(
-            (Date.now() - lastAt.getTime()) / (1000 * 60 * 60 * 24 * 30.4),
-          ),
-        )
-      : null,
-    recentTitles: recent.map((r) => String(r.title ?? '')).filter(Boolean),
-  }
+      return {
+        companyId: num(company.company_id),
+        companyName: String(company.company_name ?? ''),
+        industryId: num(company.industry_id),
+        industryName: String(company.industry_name ?? ''),
+        description: String(company.description ?? ''),
+        totalReleases: num(company.total),
+        lastReleasedAt: lastAt,
+        stoppedMonths: lastAt
+          ? Math.max(
+              0,
+              Math.round(
+                (Date.now() - lastAt.getTime()) / (1000 * 60 * 60 * 24 * 30.4),
+              ),
+            )
+          : null,
+        recentTitles,
+      }
+    },
+    COMPANY_TTL_MS,
+  )
 }
 
 // ─────────────────────────────────────────── 当たり率カーブ（中心指標）
@@ -137,12 +189,19 @@ function loadHitCurve(industryId: number): Promise<HitCurve | null> {
 
 // ─────────────────────────────────────────── 再開した企業
 
-function loadResume(
-  industryId: number,
-  totalReleases: number,
-): Promise<ResumeSegment | null> {
-  return cached(`resume:${industryId}`, async () => {
-    const result = await rows(sql`
+type ResumeRow = {
+  seg?: unknown
+  from_n?: unknown
+  to_n?: unknown
+  companies?: unknown
+  hit_before_pct?: unknown
+  hit_after_pct?: unknown
+  added_p50?: unknown
+}
+
+function loadResumeRows(industryId: number): Promise<ResumeRow[]> {
+  return cached(`resume:${industryId}`, () =>
+    rows<ResumeRow>(sql`
       WITH peers AS (SELECT company_id FROM company WHERE industry_id = ${industryId}),
       rel AS (
         SELECT r.company_id, r.created_at, COALESCE(s.page_view, 0) AS pv
@@ -184,29 +243,36 @@ function loadResume(
              PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY a.n_after)::int AS added_p50
         FROM before b JOIN after a ON a.company_id = b.company_id
        GROUP BY 1 ORDER BY 1
-    `)
-    if (!result.length) return null
+    `),
+  )
+}
 
-    const wanted =
-      totalReleases <= 1
-        ? 1
-        : totalReleases <= 3
-          ? 2
-          : totalReleases <= 10
-            ? 3
-            : 4
-    const row = result.find((r) => num(r.seg) === wanted) ?? result[0]
-    if (!row) return null
+async function loadResume(
+  industryId: number,
+  totalReleases: number,
+): Promise<ResumeSegment | null> {
+  const result = await loadResumeRows(industryId)
+  if (!result.length) return null
 
-    return {
-      fromN: num(row.from_n),
-      toN: num(row.to_n),
-      companies: num(row.companies),
-      hitBeforePct: num(row.hit_before_pct),
-      hitAfterPct: num(row.hit_after_pct),
-      addedMedian: num(row.added_p50),
-    }
-  })
+  const wanted =
+    totalReleases <= 1
+      ? 1
+      : totalReleases <= 3
+        ? 2
+        : totalReleases <= 10
+          ? 3
+          : 4
+  const row = result.find((r) => num(r.seg) === wanted) ?? result[0]
+  if (!row) return null
+
+  return {
+    fromN: num(row.from_n),
+    toN: num(row.to_n),
+    companies: num(row.companies),
+    hitBeforePct: num(row.hit_before_pct),
+    hitAfterPct: num(row.hit_after_pct),
+    addedMedian: num(row.added_p50),
+  }
 }
 
 // ─────────────────────────────────────────── 期間で見た場合
@@ -406,7 +472,7 @@ function loadAchievement(industryId: number): Promise<Achievement | null> {
 
 // ─────────────────────────────────────────── 使っていない機能
 
-async function loadUnused(companyId: number): Promise<UnusedFeature[]> {
+async function queryUnused(companyId: number): Promise<UnusedFeature[]> {
   const [f] = await rows(sql`
     SELECT COUNT(*)::int AS total,
            COUNT(*) FILTER (WHERE main_image IS NULL OR main_image = '')::int AS no_image,
@@ -454,27 +520,81 @@ async function loadUnused(companyId: number): Promise<UnusedFeature[]> {
   return out
 }
 
+function loadUnused(companyId: number): Promise<UnusedFeature[]> {
+  return cached(
+    `unused:${companyId}`,
+    () => queryUnused(companyId),
+    5 * 60 * 1000,
+  )
+}
+
 // ─────────────────────────────────────────── 合成
+
+async function loadIndustryMetrics(diagnosis: Diagnosis) {
+  const industryId = diagnosis.industryId
+  const [hitCurve, resume, period, trends, levers, achievement] =
+    await Promise.all([
+      loadHitCurve(industryId),
+      loadResume(industryId, diagnosis.totalReleases),
+      loadPeriod(industryId),
+      loadTrends(industryId),
+      loadLevers(industryId),
+      loadAchievement(industryId),
+    ])
+
+  return { hitCurve, resume, period, trends, levers, achievement }
+}
+
+function initialInsight(diagnosis: Diagnosis): Insight {
+  return {
+    diagnosis,
+    hitCurve: null,
+    resume: null,
+    period: [],
+    trends: [],
+    levers: [],
+    achievement: null,
+    unused: [],
+  }
+}
 
 export function drizzleInsightRepository(): InsightRepository {
   return {
-    async load(companyId) {
+    async load(companyId, mode = 'full') {
+      const startedAt = performance.now()
       const diagnosis = await loadDiagnosis(companyId)
       if (!diagnosis) return null
 
-      const industryId = diagnosis.industryId
-      const [hitCurve, resume, period, trends, levers, achievement, unused] =
-        await Promise.all([
-          loadHitCurve(industryId),
-          loadResume(industryId, diagnosis.totalReleases),
-          loadPeriod(industryId),
-          loadTrends(industryId),
-          loadLevers(industryId),
-          loadAchievement(industryId),
-          loadUnused(companyId),
-        ])
+      const diagnosisMs = Math.round(performance.now() - startedAt)
+      if (mode === 'initial') {
+        // 初回レスポンスは企業固有の現在地だけで返す。同業集計は同じプロセスで
+        // 先に温め、次の発言時には進行中のPromiseまたはキャッシュを共有する。
+        void loadIndustryMetrics(diagnosis).catch((error) =>
+          console.error('[pr-compass:warmup]', error),
+        )
+        console.info(
+          '[pr-compass:insights]',
+          JSON.stringify({
+            companyId,
+            industryId: diagnosis.industryId,
+            mode,
+            diagnosisMs,
+            totalMs: Math.round(performance.now() - startedAt),
+            warmup: 'started',
+          }),
+        )
+        return initialInsight(diagnosis)
+      }
 
-      return {
+      const [
+        { hitCurve, resume, period, trends, levers, achievement },
+        unused,
+      ] = await Promise.all([
+        loadIndustryMetrics(diagnosis),
+        loadUnused(companyId),
+      ])
+
+      const insight = {
         diagnosis,
         hitCurve,
         resume,
@@ -484,6 +604,18 @@ export function drizzleInsightRepository(): InsightRepository {
         achievement,
         unused,
       } satisfies Insight
+
+      console.info(
+        '[pr-compass:insights]',
+        JSON.stringify({
+          companyId,
+          industryId: diagnosis.industryId,
+          mode,
+          diagnosisMs,
+          totalMs: Math.round(performance.now() - startedAt),
+        }),
+      )
+      return insight
     },
   }
 }
