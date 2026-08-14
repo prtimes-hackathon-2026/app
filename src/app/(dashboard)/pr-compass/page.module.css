@@ -1,3 +1,9 @@
+/*
+ * PR 羅針盤の骨組み。左の聞き取りメモと右のチャットの位置関係、
+ * 吹き出し・入力欄・通知の見た目をここだけが持つ。
+ * 提示物 (block) の中身は blocks.module.css。
+ */
+
 .page {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -59,34 +65,61 @@
   color: var(--c-text-faint);
 }
 
-/* メモ本体 */
+/*
+ * メモ本体。自然文ではなく項目ごとの記録になったので、
+ * ラベルと値を上下に組んで、埋まっている項目とまだの項目が並びで分かるようにする。
+ */
 .memoBody {
   flex: 1;
-  font-size: var(--fs-sm);
-  line-height: 1.9;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.memoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.memoLabel {
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+}
+
+.memoValue {
   color: var(--c-text);
-  white-space: pre-wrap;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  line-height: 1.6;
   word-break: break-word;
-  /* 手記らしい若干温かみのある表示 */
-  letter-spacing: 0.01em;
 }
 
-.memoUpdating {
-  opacity: 0.6;
-  animation: fadeInOut 1.2s ease infinite;
+/* まだ会話が届いていない項目。行そのものは残して、これから埋まることを見せる */
+.memoValueEmpty {
+  border-bottom: 1px dashed var(--c-border-strong);
+  min-height: var(--s-5);
 }
 
-@keyframes fadeInOut {
-  0%,
-  100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.3;
-  }
+.memoFooter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  align-items: flex-start;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
 }
 
-/* フェーズバッジ */
+.memoNote {
+  color: var(--c-text-faint);
+  line-height: 1.6;
+}
+
+/*
+ * ターンのバッジ。トークンに状態色が無いため、配色は改修前の画面から引き継いでいる。
+ * 新しく色を足すときは tokens.css 側に置く。
+ */
 .phaseBadge {
   display: inline-flex;
   align-items: center;
@@ -98,17 +131,17 @@
   white-space: nowrap;
 }
 
-.phaseBadgeDiscovery {
+.phaseBadgeTurn0 {
   background: #fef3c7;
   color: #92400e;
 }
 
-.phaseBadgeFreeTalk {
+.phaseBadgeTurn1 {
   background: #dbeafe;
   color: #1e40af;
 }
 
-.phaseBadgeProposal {
+.phaseBadgeTurn2 {
   background: #d1fae5;
   color: #065f46;
 }
@@ -139,8 +172,11 @@
   font-size: var(--fs-md);
 }
 
+/* AI 側は文章のあとに提示物 (表) が続くので、会話の吹き出しより幅を取る */
 .bubbleAi {
   align-self: flex-start;
+  width: 100%;
+  max-width: 960px;
 }
 
 .bubbleUser {
@@ -150,7 +186,6 @@
 .bubbleInner {
   padding: var(--s-4) var(--s-5);
   border-radius: var(--r-lg);
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -164,6 +199,13 @@
   background: var(--c-primary);
   color: var(--c-on-primary);
   border-bottom-right-radius: var(--r-sm);
+  /* 自由入力の改行をそのまま残す。AI 側は要素で組むので掛けない */
+  white-space: pre-wrap;
+}
+
+/* サーバの描画が返るまでの仮表示 */
+.bubblePending {
+  opacity: 0.6;
 }
 
 .bubbleLabel {
@@ -178,6 +220,10 @@
 .bubbleUser .bubbleLabel {
   text-align: right;
   margin-right: 2px;
+}
+
+.bubbleState {
+  margin-left: var(--s-2);
 }
 
 /* タイピングアニメ */
@@ -220,6 +266,21 @@
   }
 }
 
+/*
+ * 送信の失敗などの通知。デザインシステムに状態色 (danger) が無いため、
+ * 色ではなく枠線の強さと太字で他と区別している。
+ */
+.alert {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  padding: var(--s-3) var(--s-4);
+  font-weight: var(--fw-bold);
+  background: var(--c-surface-muted);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-md);
+}
+
 /* 完了バナー */
 .completeBanner {
   margin: var(--s-4) 0;
@@ -239,19 +300,69 @@
   font-weight: var(--fw-bold);
 }
 
-/* 入力エリア */
+.completeBannerLink {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  white-space: nowrap;
+}
+
+/* ────────────────────────────────────────────
+   入力エリア：選択肢 + 自由入力
+──────────────────────────────────────────── */
 .inputArea {
   padding: var(--s-4) var(--s-6);
   border-top: 1px solid var(--c-border);
   background: var(--c-surface);
 }
 
+.inputInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.questionText {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/*
+ * 選択肢。押した時点で送信されるので、押せる面であることが分かる強さにしつつ、
+ * 送信ボタンと張り合わないよう塗りは持たせない。
+ */
+.choice {
+  padding: var(--s-2) var(--s-4);
+  font-size: var(--fs-sm);
+  color: var(--c-primary);
+  background: var(--c-surface);
+  border: 1px solid var(--c-primary);
+  border-radius: var(--r-full);
+  transition:
+    background-color var(--transition),
+    color var(--transition);
+}
+
+.choice:hover:not(:disabled) {
+  background: var(--c-primary-soft);
+}
+
+.choice:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .inputRow {
   display: flex;
   gap: var(--s-3);
   align-items: flex-end;
-  max-width: 800px;
-  margin: 0 auto;
 }
 
 .textarea {
@@ -274,6 +385,11 @@
 
 .textarea:focus {
   border-color: var(--c-focus);
+}
+
+.textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .sendBtn {
@@ -304,7 +420,6 @@
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   text-align: center;
-  margin-top: var(--s-2);
 }
 
 /* レスポンシブ */
@@ -324,6 +439,10 @@
 
   .chat {
     height: calc(100dvh - var(--header-h) - 44px - 220px);
+  }
+
+  .messages {
+    padding: var(--s-4);
   }
 }
 

@@ -20,13 +20,15 @@ const envSchema = z.object({
   APP_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
   APP_DATABASE_MIGRATE_ON_STARTUP: migrateOnStartupSchema.optional(),
 
-  // 統計情報用の外部 PostgreSQL (このアプリの管理外・参照のみ)
+  // PR TIMES のデータベース (このアプリの管理外・参照のみ)
   STATS_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   STATS_DATABASE_SSL: sslModeSchema.default('require'),
   STATS_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
 
-  // PR羅針盤 AI コーチング機能
-  OPENAI_API_KEY: z.string().optional(),
+  // PR羅針盤 AI コーチング機能。
+  // キーが無くてもテンプレの下書きをそのまま出せば会話は成立するので optional に
+  // している。ここで必須にすると、キーを持たない環境でアプリ全体が動かなくなる。
+  OPENAI_API_KEY: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>
@@ -73,4 +75,91 @@ export function shouldMigrateOnStartup(): boolean {
   }
 
   return parsed.data
+}
+
+/**
+ * 簡易ログインの設定。
+ *
+ * 共有の合言葉を 1 つ知っていれば入れる、という割り切った仕組みなので、
+ * 利用者ごとの資格情報は持たない (README「簡易ログイン」)。
+ */
+const authSchema = z.object({
+  // 合言葉。既定値はデモ用で、公開する環境では必ず差し替える
+  AUTH_PASSWORD: z.string().min(1).default('prtimes'),
+  // セッション Cookie の署名鍵。未設定でも動くが、production では設定する (下の authConfig)
+  AUTH_SESSION_SECRET: z.string().min(32).optional(),
+})
+
+export type AuthConfig = {
+  readonly password: string
+  readonly sessionSecret: string
+}
+
+/**
+ * 開発用の署名鍵。
+ *
+ * これで署名した Cookie は「開発機で作った」以上の意味を持たない。
+ * 固定値にしているのは、`pnpm dev` が再起動するたびにログインし直さずに済むようにするため。
+ */
+const developmentSessionSecret =
+  'development-only-session-secret-do-not-use-in-production'
+
+/**
+ * 鍵が未設定のまま production で動かしてしまったときの落としどころ。
+ *
+ * 起動時に落とす手もあるが、DB の接続情報と違って安全な代わりを用意できる。
+ * 乱数で作れば署名の強度は落ちない (リポジトリを読める人にも偽造できない)。
+ * 代わりにプロセスをまたいでセッションを持ち回れないので、再起動でログアウトし、
+ * 複数タスク構成では入り直しを求められる。それが分かるように警告を出す。
+ *
+ * 鍵は `globalThis` に置く。Next.js はルートごとに別のモジュール実体を作るため、
+ * モジュールスコープに持つとルートハンドラと画面で違う鍵になり、
+ * 自分で署名した Cookie を自分で検証できなくなる。
+ */
+const generatedSecretProperty = '__appGeneratedSessionSecret'
+
+function generatedSessionSecret(): string {
+  const holder = globalThis as typeof globalThis & {
+    [generatedSecretProperty]?: string
+  }
+  if (holder[generatedSecretProperty] === undefined) {
+    holder[generatedSecretProperty] = crypto.randomUUID() + crypto.randomUUID()
+    console.warn(
+      'AUTH_SESSION_SECRET が未設定です。起動ごとの乱数で代用します' +
+        '(再起動やタスクの入れ替わりでログアウトします)。' +
+        'openssl rand -base64 32 で作った値を設定してください',
+    )
+  }
+  return holder[generatedSecretProperty]
+}
+
+let cachedAuth: AuthConfig | undefined
+
+/**
+ * ここも `env()` を通さず生の環境変数を見る。理由は shouldMigrateOnStartup() と同じで、
+ * DB の接続情報が無い環境 (模擬データで動かすデモ、CI の `next build`) でも
+ * ログイン画面までは出せるようにしておきたいため。
+ */
+export function authConfig(): AuthConfig {
+  if (cachedAuth) return cachedAuth
+
+  const parsed = authSchema.safeParse(process.env)
+  if (!parsed.success) {
+    throw new Error(
+      `ログインの環境変数が不正です:\n${z.prettifyError(parsed.error)}`,
+      { cause: parsed.error },
+    )
+  }
+
+  const secret = parsed.data.AUTH_SESSION_SECRET
+  const fallback =
+    process.env.NODE_ENV === 'production'
+      ? generatedSessionSecret()
+      : developmentSessionSecret
+
+  cachedAuth = {
+    password: parsed.data.AUTH_PASSWORD,
+    sessionSecret: secret ?? fallback,
+  }
+  return cachedAuth
 }
