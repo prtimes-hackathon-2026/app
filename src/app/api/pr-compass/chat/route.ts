@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { prCompassFeature, type ChatMessage } from '@/feature/pr-compass'
+import {
+  parseConversationState,
+  prCompassFeature,
+  type ChatMessage,
+} from '@/feature/pr-compass'
 
 export const runtime = 'nodejs'
 
@@ -8,7 +12,7 @@ export const runtime = 'nodejs'
  * 広報伴走エージェント。
  *
  * 会話の進み方は feature 側の状態機械が決めており、ここは受け渡しだけを行う。
- * 画面は `{ role, content }` しか送ってこないので、進行度は履歴から復元する。
+ * 進行度は画面が state として持ち回るので、ここでは壊れていないかだけを見る。
  *
  * 数値はすべて統計 DB の集計結果で、LLM が作った数字は一つも載らない。
  * LLM は「自由入力を分岐に落とす」「下書きを言い換える」ためだけに使う。
@@ -19,6 +23,7 @@ export async function POST(req: NextRequest) {
       messages?: ChatMessage[]
       memo?: string
       companyId?: number
+      state?: unknown
     }
 
     // 対象企業。画面から渡されなければ既定値を使う
@@ -33,6 +38,8 @@ export async function POST(req: NextRequest) {
         (m) => m.role === 'user' || m.role === 'assistant',
       ),
       memo: body.memo ?? '',
+      // 壊れていれば null。会話は最初の診断から始まる
+      state: parseConversationState(body.state),
     })
 
     return NextResponse.json(result)

@@ -1,9 +1,11 @@
 import {
   INTEREST_SUGGESTIONS,
+  OBJECTION_LABELS,
   OBJECTION_PLAYBOOK,
   REASON_SUGGESTIONS,
   type ConversationState,
   type Interest,
+  type Objection,
   type Reason,
 } from '../domain/conversation'
 import type { Block } from '../domain/block'
@@ -539,19 +541,18 @@ export function composeDoubt(insight: Insight): Draft {
 export function composeAlternative(
   insight: Insight,
   state: ConversationState,
+  objection: Objection,
 ): Draft {
   const { trends, diagnosis: d } = insight
-  const move =
-    OBJECTION_PLAYBOOK[
-      Math.min(state.objections - 1, OBJECTION_PLAYBOOK.length - 1)
-    ]
+  const alt = trends[1] ?? trends[0]
   const facts: Record<string, string> = {
     断られた回数: `${state.objections}回`,
+    合わなかった点: OBJECTION_LABELS[objection],
+    次に試すこと: OBJECTION_PLAYBOOK[objection],
   }
   const lines: string[] = []
 
-  if (state.objections === 1) {
-    const alt = trends[1] ?? trends[0]
+  if (objection === 'content') {
     if (alt) {
       lines.push(
         `わかりました。切り口を変えましょう。${d.industryName}では「${alt.name}」の形も跳ねやすく、上位10%で${alt.pvP90}PVです。`,
@@ -559,9 +560,20 @@ export function composeAlternative(
       facts['別の切り口'] = `${alt.name}（跳ねたとき${alt.pvP90}PV）`
     }
     lines.push(
-      `届けたい相手が違う、ということはありませんか。いま届いている相手と、届けたい相手は同じでしょうか。`,
+      `同じ商品でも、何を主役にするかで形は変わります。いま伝えたいことに近いのは、どのあたりでしょうか。`,
     )
-  } else if (state.objections === 2) {
+  } else if (objection === 'audience') {
+    lines.push(
+      `届けたい相手が違う、ということですね。それなら内容より先に、誰に向けて書くかを決めたほうが早いです。`,
+    )
+    if (alt) {
+      lines.push(
+        `相手が変われば形も変わります。${d.industryName}では「${alt.name}」の形が上位10%で${alt.pvP90}PVまで伸びています。`,
+      )
+      facts['別の切り口'] = `${alt.name}（跳ねたとき${alt.pvP90}PV）`
+    }
+    lines.push(`いま届けたいのは、どういう相手でしょうか。`)
+  } else if (objection === 'effort') {
     lines.push(
       `では、もっと軽い形にしましょう。新しく書き起こさなくても、既にある素材（過去のリリース・社内の資料・お客様の声）を組み直すだけで1本になります。`,
     )
@@ -570,11 +582,13 @@ export function composeAlternative(
     )
   } else {
     lines.push(
-      `提案を重ねるより、実例を見ていただくほうが早そうです。同じ${d.industryName}の企業が実際に出したものを見て、近いものがあるか教えてください。`,
+      `以前に試して駄目だったのであれば、提案を重ねるより実例を見ていただくほうが早そうです。`,
+    )
+    lines.push(
+      `同じ${d.industryName}の企業が実際に出したものを見て、そのときと何が違うか教えてください。`,
     )
   }
 
-  if (move) facts['次に試すこと'] = move
   return { draft: lines.join('\n\n'), facts }
 }
 
@@ -595,5 +609,60 @@ export function composeHandoff(
       合わなかった提案の回数: `${state.objections}回`,
       目標の本数: `${resume?.addedMedian ?? 3}本`,
     },
+  }
+}
+
+// ─────────────────────────────────────────── 聞き直し
+
+/**
+ * 答えが取れなかったときは、段を進めずにここへ来る。
+ *
+ * 数値をもう一度並べ直しても答えは出ないので、問いだけを狭めて聞き直す。
+ * 図も出さない（同じ図が続けて出ると、話が進んでいないように見える）。
+ */
+export function composeReasonRetry(insight: Insight): Draft {
+  const { diagnosis: d } = insight
+  const last = d.recentTitles[0]
+  const facts: Record<string, string> = { 会社名: d.companyName }
+  if (last) facts['前回のリリース'] = last
+
+  return {
+    draft:
+      `すみません、うまく汲み取れませんでした。もう少しだけ伺わせてください。\n\n` +
+      (last
+        ? `「${last.slice(0, 40)}」を出されたあと、次が止まったのはどのあたりでしたか。`
+        : `次を出そうとして止まったのは、どのあたりでしたか。`) +
+      `思い当たるものが無ければ「特に理由はない」で構いません。`,
+    facts,
+    suggestions: Object.values(REASON_SUGGESTIONS),
+  }
+}
+
+/** やりたいことが取れなかったとき。選ばせるのではなく、言い方を変えて聞く */
+export function composeInterestRetry(insight: Insight): Draft {
+  const { diagnosis: d } = insight
+  return {
+    draft:
+      `いま一番やりたいことが掴めませんでした。言い方を変えます。\n\n` +
+      `次に1本出すとして、それを誰にどう受け取ってほしいですか。近いものを選んでいただくだけでも構いません。`,
+    facts: { 会社名: d.companyName, 業種: d.industryName },
+    suggestions: Object.values(INTEREST_SUGGESTIONS),
+  }
+}
+
+/** 提案への反応が取れなかったとき。「いく／いかない」を迫らない */
+export function composeReactRetry(insight: Insight): Draft {
+  return {
+    draft:
+      `いまの提案は、どのあたりが引っかかりましたか。\n\n` +
+      `内容が合わない、社内で通しにくい、効果が読めない、どれでも構いません。合っていそうなら、そのまま書きにいきましょう。`,
+    facts: { 会社名: insight.diagnosis.companyName },
+    suggestions: [
+      'この方向で書いてみる',
+      '社内で通せるか不安',
+      '効果が出るか半信半疑',
+      'ピンとこない',
+      '担当者と話したい',
+    ],
   }
 }

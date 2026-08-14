@@ -2,11 +2,15 @@ import 'server-only'
 
 import { env } from '@/shared/env'
 
-import type {
-  Interest,
-  Objection,
-  Reaction,
-  Reason,
+import {
+  INTERESTS,
+  OBJECTIONS,
+  REACTIONS,
+  REASONS,
+  type Interest,
+  type Objection,
+  type Reaction,
+  type Reason,
 } from '../domain/conversation'
 import type { Classifier, Narrator } from '../domain/language'
 
@@ -59,30 +63,37 @@ async function chat(
   }
 }
 
-/** 自由入力を1語の id に落とす。迷ったら既定値へ倒す */
-function pick<T extends string>(
-  raw: string,
-  ids: readonly T[],
-  fallback: T,
-): T {
+/**
+ * 自由入力を1語の id に落とす。
+ * どれにも当たらなければ null。既定値へ倒さないのは、
+ * 「答えが取れなかった」ことを呼び出し側に伝えて聞き直させるため。
+ */
+function pick<T extends string>(raw: string, ids: readonly T[]): T | null {
   const lower = raw.toLowerCase()
-  return ids.find((id) => lower.includes(id)) ?? fallback
+  return ids.find((id) => lower.includes(id)) ?? null
 }
 
+/**
+ * 分類の指示。unclear を必ず選べるようにしておく。
+ *
+ * これが無いと、答えになっていない発言（質問・雑談・相槌）まで
+ * どれかの分岐に落ちてしまい、聞けていないのに会話が先へ進む。
+ */
 const classifyPrompt = (options: Record<string, string>) =>
   `ユーザーの発言を、次のどれか1つに割り当てる。
 
 ${Object.entries(options)
   .map(([id, label]) => `${id}: ${label}`)
   .join('\n')}
+unclear: どれにも当てはまらない・質問や相槌で答えになっていない・判断がつかない
 
-判断がつかない場合は最後の項目。
+推測で埋めない。少しでも迷ったら unclear。
 出力は id をそのまま1語だけ。説明も記号も付けない。`
 
 export function openAiClassifier(): Classifier {
   return {
     async reason(text) {
-      if (!text) return 'none'
+      if (!text) return null
       const raw = await chat(
         classifyPrompt({
           no_topic: '出すネタが見つからない・何を書けばいいか分からない',
@@ -94,15 +105,11 @@ export function openAiClassifier(): Classifier {
         text,
         { maxTokens: 6, temperature: 0 },
       )
-      return pick<Reason>(
-        raw,
-        ['no_topic', 'no_time', 'no_effect', 'handover', 'none'],
-        'none',
-      )
+      return pick<Reason>(raw, REASONS)
     },
 
     async interest(text) {
-      if (!text) return 'topic'
+      if (!text) return null
       const raw = await chat(
         classifyPrompt({
           pv: 'もっと多くの人に見てもらいたい・読まれたい',
@@ -113,11 +120,11 @@ export function openAiClassifier(): Classifier {
         text,
         { maxTokens: 6, temperature: 0 },
       )
-      return pick<Interest>(raw, ['pv', 'media', 'story', 'topic'], 'topic')
+      return pick<Interest>(raw, INTERESTS)
     },
 
     async reaction(text) {
-      if (!text) return 'write'
+      if (!text) return null
       const raw = await chat(
         classifyPrompt({
           human: '担当者・人と話したい',
@@ -130,15 +137,11 @@ export function openAiClassifier(): Classifier {
         text,
         { maxTokens: 6, temperature: 0 },
       )
-      return pick<Reaction>(
-        raw,
-        ['human', 'boss', 'doubt', 'weak', 'more', 'write'],
-        'write',
-      )
+      return pick<Reaction>(raw, REACTIONS)
     },
 
     async objection(text) {
-      if (!text) return 'content'
+      if (!text) return null
       const raw = await chat(
         classifyPrompt({
           audience: '届けたい相手が違う',
@@ -149,11 +152,7 @@ export function openAiClassifier(): Classifier {
         text,
         { maxTokens: 6, temperature: 0 },
       )
-      return pick<Objection>(
-        raw,
-        ['audience', 'content', 'tried', 'effort'],
-        'content',
-      )
+      return pick<Objection>(raw, OBJECTIONS)
     },
   }
 }

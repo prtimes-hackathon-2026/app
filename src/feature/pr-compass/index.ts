@@ -13,7 +13,8 @@ export type {
   ChatMessage,
   AdvanceResult,
 } from './application/advance-conversation'
-export type { Phase } from './domain/conversation'
+export type { ConversationState, Phase } from './domain/conversation'
+export { parseConversationState } from './domain/conversation'
 export type { StoppedCompany } from './domain/company-directory'
 
 const companies = drizzleCompanyDirectory()

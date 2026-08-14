@@ -1,11 +1,15 @@
 import {
+  INTEREST_FROM_REASON,
   MAX_OBJECTIONS,
+  MAX_STALLS,
+  OBJECTION_ORDER,
+  initialState,
   phaseOf,
   type ConversationState,
   type Interest,
+  type Objection,
   type Phase,
   type Reason,
-  type Step,
 } from '../domain/conversation'
 import type { Block } from '../domain/block'
 import type { Insight } from '../domain/insight'
@@ -19,8 +23,11 @@ import {
   composeDiagnosis,
   composeDoubt,
   composeHandoff,
+  composeInterestRetry,
   composeProposal,
+  composeReactRetry,
   composeReason,
+  composeReasonRetry,
   composeWriteGuide,
   type Draft,
 } from './compose-draft'
@@ -32,6 +39,8 @@ export type AdvanceInput = {
   messages: readonly ChatMessage[]
   /** 前ターンまでのメモ。画面が持っていない場合は空でよい */
   memo?: string
+  /** 前ターンまでの状態。初回は無い */
+  state?: ConversationState | null
 }
 
 export type AdvanceResult = {
@@ -47,39 +56,11 @@ export type AdvanceResult = {
   speech: string
   /** 数値を描く部品。本文が言い換えで揺れても、ここの数字は変わらない */
   blocks: readonly Block[]
-}
-
-/**
- * 画面は `{ role, content }` しか送ってこないので、状態は履歴から復元する。
- * アシスタントの発言数がそのまま進行度になる。
- */
-function deriveStep(messages: readonly ChatMessage[]): Step {
-  const turns = messages.filter((m) => m.role === 'assistant').length
-  if (turns === 0) return 'diagnosis'
-  if (turns === 1) return 'reason'
-  if (turns === 2) return 'proposal'
-  return 'react'
-}
-
-/**
- * 断られた回数。毎回すべてを分類し直すと LLM を何度も呼ぶことになるので、
- * 過去分は語句で拾い、最新の1件だけを分類にかける。
- */
-const OBJECTION_HINT =
-  /ピンとこ|ぴんとこ|しっくり|違う気|ちがう気|弱い|微妙|それはちょっと|うーん|合わな|あわな|他にな|別の|ほかの/
-
-function countPastObjections(messages: readonly ChatMessage[]): number {
-  // 提案（3ターン目）より後のユーザー発言だけを数える
-  let assistantTurns = 0
-  let count = 0
-  for (const m of messages) {
-    if (m.role === 'assistant') {
-      assistantTurns += 1
-      continue
-    }
-    if (assistantTurns >= 3 && OBJECTION_HINT.test(m.content)) count += 1
-  }
-  return count
+  /**
+   * 次のターンでそのまま返してもらう。会話がどこまで進んだかはこれだけが持つ。
+   * 画面は中身を読まない
+   */
+  state: ConversationState
 }
 
 const lastUserText = (messages: readonly ChatMessage[]) =>
@@ -87,19 +68,6 @@ const lastUserText = (messages: readonly ChatMessage[]) =>
     .reverse()
     .find((m) => m.role === 'user')
     ?.content?.trim() ?? ''
-
-/** 理由から関心を推定する。当たっていれば質問を1つ減らせる */
-function inferInterest(reason: Reason): Interest {
-  switch (reason) {
-    case 'no_effect':
-      return 'pv'
-    case 'handover':
-    case 'no_time':
-    case 'no_topic':
-    default:
-      return 'topic'
-  }
-}
 
 export type AdvanceConversation = (
   input: AdvanceInput,
@@ -110,108 +78,213 @@ export function advanceConversation(deps: {
   classifier: Classifier
   narrator: Narrator
 }): AdvanceConversation {
-  return async ({ companyId, messages, memo = '' }) => {
+  return async ({ companyId, messages, memo = '', state }) => {
+    const current = state ?? initialState()
     const insight = await deps.insights.load(companyId)
     if (!insight) {
       return {
         content:
           '対象の企業が見つかりませんでした。設定を確認してからもう一度お試しください。',
-        phase: 'discovery',
+        phase: phaseOf(current.step),
         memo,
         suggestions: [],
         speech: '',
         blocks: [],
+        state: current,
       }
     }
 
-    const step = deriveStep(messages)
-    const text = lastUserText(messages)
-
-    const state: ConversationState = {
-      step,
-      reason: null,
-      interest: null,
-      objections: countPastObjections(messages),
-      handoffToHuman: false,
-      finished: false,
-    }
-
-    const { draft, facts, suggestions, blocks } = await route(
-      step,
-      text,
+    const { reply, next } = await route(
+      current,
+      lastUserText(messages),
       insight,
-      state,
       deps.classifier,
     )
 
     const history = messages.slice(-6)
-    const spoken = await deps.narrator.speak({ facts, draft, history })
+    const spoken = await deps.narrator.speak({
+      facts: reply.facts,
+      draft: reply.draft,
+      history,
+    })
 
     const nextMemo = await deps.narrator.memo({
-      facts,
+      facts: reply.facts,
       history,
       previous: memo,
     })
 
     return {
       content: spoken,
-      suggestions: suggestions ?? [],
+      suggestions: reply.suggestions ?? [],
       speech: toScript(spoken),
-      blocks: blocks ?? [],
-      // 書きに行くか、人に渡すかが決まったときだけ閉じる。
-      // 断られただけで閉じてしまうと、粘る前に入力欄が消える
-      phase: state.finished ? 'complete' : phaseOf(step),
+      blocks: reply.blocks ?? [],
+      // 次に何を聞くかがそのままフェーズになる。
+      // 書きに行くか人に渡すかが決まったときだけ complete になる
+      phase: phaseOf(next.step),
       memo: nextMemo,
+      state: next,
     }
   }
 }
 
-/** 段ごとに、どの下書きを出すかを決める */
+/** 1ターン分の返答と、そのあとの状態 */
+type Turn = { reply: Draft; next: ConversationState }
+
+/**
+ * 段ごとに、聞いたことが取れたかを分類器に判定させる。
+ * 取れたときだけ次の段へ進み、取れなければ同じ段に留まって聞き直す。
+ */
 async function route(
-  step: Step,
+  state: ConversationState,
   text: string,
   insight: Insight,
-  state: ConversationState,
   classifier: Classifier,
-): Promise<Draft> {
-  if (step === 'diagnosis') return composeDiagnosis(insight)
+): Promise<Turn> {
+  // ① 診断。相手の答えを待たずに出す唯一の段
+  if (state.step === 'diagnosis') {
+    return {
+      reply: composeDiagnosis(insight),
+      next: { ...state, step: 'reason', stalls: 0 },
+    }
+  }
 
-  if (step === 'reason') {
+  // ② 止まった理由。取れるまで提案には進まない
+  if (state.step === 'reason') {
     const reason = await classifier.reason(text)
-    state.reason = reason
-    state.interest = inferInterest(reason)
-    return composeReason(insight, reason)
+    if (reason !== null) return prescribe(insight, state, reason)
+
+    const stalls = state.stalls + 1
+    if (stalls < MAX_STALLS) {
+      return { reply: composeReasonRetry(insight), next: { ...state, stalls } }
+    }
+    // 聞き直しても取れない。ここで粘るより、理由なしとして先へ進むほうが早い
+    return prescribe(insight, state, 'none')
   }
 
-  if (step === 'proposal') {
+  // ③ 何をしたいか
+  if (state.step === 'interest') {
     const interest = await classifier.interest(text)
-    state.interest = interest
-    return composeProposal(insight, interest)
+    if (interest !== null) return propose(insight, state, interest)
+
+    const stalls = state.stalls + 1
+    if (stalls < MAX_STALLS) {
+      return {
+        reply: composeInterestRetry(insight),
+        next: { ...state, stalls },
+      }
+    }
+    // 理由から推定した関心がある。同じことを聞き続けるより、それで出す
+    return propose(insight, state, state.interest ?? 'topic')
   }
 
-  // ここから先は提案への反応を受け続ける
+  // ④ 提案への反応。complete のあとに送られてきた場合もここで受ける
+  return react(insight, state, text, classifier)
+}
+
+/** 理由が取れた。処方を出して、次は「何をしたいか」を聞く */
+function prescribe(
+  insight: Insight,
+  state: ConversationState,
+  reason: Reason,
+): Turn {
+  return {
+    reply: composeReason(insight, reason),
+    next: {
+      ...state,
+      step: 'interest',
+      reason,
+      // 理由が分かれば関心はほぼ推定できる。次の段で取れなかったときに使う
+      interest: INTEREST_FROM_REASON[reason],
+      stalls: 0,
+    },
+  }
+}
+
+/** 関心が取れた。提案を出して、次は反応を聞く */
+function propose(
+  insight: Insight,
+  state: ConversationState,
+  interest: Interest,
+): Turn {
+  return {
+    reply: composeProposal(insight, interest),
+    next: { ...state, step: 'react', interest, stalls: 0 },
+  }
+}
+
+/** 提案への反応を受ける。ここは何度でも回る */
+async function react(
+  insight: Insight,
+  state: ConversationState,
+  text: string,
+  classifier: Classifier,
+): Promise<Turn> {
   const reaction = await classifier.reaction(text)
 
-  if (reaction === 'human') {
-    state.handoffToHuman = true
-    state.finished = true
-    return composeHandoff(insight, state)
+  if (reaction === null) {
+    const stalls = state.stalls + 1
+    if (stalls < MAX_STALLS) {
+      return {
+        reply: composeReactRetry(insight),
+        next: { ...state, step: 'react', stalls },
+      }
+    }
+    // 何度聞いても意図が取れない。対話では解けないので人に渡す
+    return handoff(insight, state)
   }
+
+  const base: ConversationState = { ...state, step: 'react', stalls: 0 }
+
+  if (reaction === 'human') return handoff(insight, base)
 
   if (reaction === 'weak') {
-    state.objections += 1
-    if (state.objections >= MAX_OBJECTIONS) {
-      state.handoffToHuman = true
-      state.finished = true
-      return composeHandoff(insight, state)
+    const objections = base.objections + 1
+    if (objections >= MAX_OBJECTIONS) {
+      return handoff(insight, { ...base, objections })
     }
-    return composeAlternative(insight, state)
+    const drawer = pickDrawer(base, await classifier.objection(text))
+    return {
+      reply: composeAlternative(insight, { ...base, objections }, drawer),
+      next: { ...base, objections, tried: [...base.tried, drawer] },
+    }
   }
 
-  if (reaction === 'boss') return composeBossSheet(insight)
-  if (reaction === 'doubt') return composeDoubt(insight)
+  if (reaction === 'boss')
+    return { reply: composeBossSheet(insight), next: base }
+  if (reaction === 'doubt') return { reply: composeDoubt(insight), next: base }
 
-  // write / more は同じ出口へ向かう。会話の目的は1本書いてもらうこと
-  state.finished = true
-  return composeWriteGuide(insight, state.interest ?? 'topic')
+  // more は書き方を見せるだけ。書くと決まったわけではないので閉じない
+  const guide = composeWriteGuide(insight, base.interest ?? 'topic')
+  if (reaction === 'more') return { reply: guide, next: base }
+
+  // write。ここで初めて会話を閉じる
+  return { reply: guide, next: { ...base, step: 'complete' } }
+}
+
+/** 人に渡す。ここで会話は閉じる */
+function handoff(insight: Insight, state: ConversationState): Turn {
+  const next: ConversationState = {
+    ...state,
+    step: 'complete',
+    handoffToHuman: true,
+    stalls: 0,
+  }
+  return { reply: composeHandoff(insight, next), next }
+}
+
+/**
+ * どの引き出しを開けるか。分類が同じ結果に偏っても、同じ切り口は二度出さない。
+ * 分類できなかった場合も、まだ開けていない引き出しから順に出す。
+ */
+function pickDrawer(
+  state: ConversationState,
+  objection: Objection | null,
+): Objection {
+  if (objection !== null && !state.tried.includes(objection)) return objection
+  return (
+    OBJECTION_ORDER.find((o) => !state.tried.includes(o)) ??
+    objection ??
+    OBJECTION_ORDER[0]
+  )
 }

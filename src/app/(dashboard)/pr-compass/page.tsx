@@ -274,6 +274,8 @@ export default function PrCompassPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [phase, setPhase] = useState<Phase>('discovery')
+  // 会話がどこまで進んだか。画面は中身を読まず、受け取ったものをそのまま返す
+  const [convState, setConvState] = useState<unknown>(null)
   const [memo, setMemo] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   // 音声。読み上げは任意機能で、失敗しても会話は続く
@@ -304,10 +306,12 @@ export default function PrCompassPage() {
           suggestions: s,
           speech: sp,
           blocks,
+          state: st,
         }) => {
           setMessages([{ role: 'assistant', content, blocks }])
           if (p) setPhase(p as Phase)
           if (m) setMemo(m)
+          setConvState(st ?? null)
           setSuggestions(Array.isArray(s) ? s : [])
           setSpeech(sp ?? '')
         },
@@ -355,13 +359,22 @@ export default function PrCompassPage() {
       const res = await fetch('/api/pr-compass/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        // memo も state と同じで、持っているのは画面だけ。
+        // 渡さないと毎回ゼロから書き直しになり、前回までの聞き取りが消える
+        body: JSON.stringify({ messages: newMessages, state: convState, memo }),
       })
-      const { content, phase: p, memo: m, suggestions: s } = await res.json()
+      const {
+        content,
+        phase: p,
+        memo: m,
+        suggestions: s,
+        state: st,
+      } = await res.json()
 
       setMessages([...newMessages, { role: 'assistant', content }])
       if (p) setPhase(p as Phase)
       if (m) setMemo(m)
+      setConvState(st ?? null)
       setSuggestions(Array.isArray(s) ? s : [])
     } catch {
       setMessages([
@@ -374,7 +387,7 @@ export default function PrCompassPage() {
     } finally {
       setLoading(false)
     }
-  }, [input, loading, isComplete, messages])
+  }, [input, loading, isComplete, messages, convState, memo])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 日本語入力の変換確定も Enter なので、変換中は送信しない。

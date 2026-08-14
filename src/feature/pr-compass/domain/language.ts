@@ -1,11 +1,16 @@
 import type { Interest, Objection, Reaction, Reason } from './conversation'
 
-/** 自由入力を、こちらの分岐に落とす */
+/**
+ * 自由入力を、こちらの分岐に落とす。
+ *
+ * null は「取れなかった」。既定値へ倒さないので、
+ * 呼び出し側は段を進めずに聞き直せる。
+ */
 export type Classifier = {
-  reason(text: string): Promise<Reason>
-  interest(text: string): Promise<Interest>
-  reaction(text: string): Promise<Reaction>
-  objection(text: string): Promise<Objection>
+  reason(text: string): Promise<Reason | null>
+  interest(text: string): Promise<Interest | null>
+  reaction(text: string): Promise<Reaction | null>
+  objection(text: string): Promise<Objection | null>
 }
 
 /**
