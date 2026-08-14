@@ -25,15 +25,10 @@ const envSchema = z.object({
   STATS_DATABASE_SSL: sslModeSchema.default('require'),
   STATS_DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
 
-  // OpenAI (PR羅針盤の AI コーチングと、広報伴走エージェントの文章化で共用)。
+  // PR羅針盤 AI コーチング機能。
   // キーが無くてもテンプレの下書きをそのまま出せば会話は成立するので optional に
   // している。ここで必須にすると、キーを持たない環境でアプリ全体が動かなくなる。
   OPENAI_API_KEY: z.string().min(1).optional(),
-  // モデルは並べて比較できるように差し替え口だけ開けておく (既定は設計 §11(c))
-  OPENAI_NARRATOR_MODEL: z.string().min(1).default('gpt-5.6-luna'),
-  OPENAI_CLASSIFIER_MODEL: z.string().min(1).default('gpt-5.4-nano'),
-  // 3 層推定は文章化と同じモデルを使う。単体で比較したいときだけ指定する
-  OPENAI_PROFILER_MODEL: z.string().min(1).optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

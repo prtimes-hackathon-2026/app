@@ -30,7 +30,6 @@
     ]
   },
   "dependencies": {
-    "@openai/agents": "0.15.0",
     "drizzle-orm": "^0.45.2",
     "next": "^16.3.0",
     "postgres": "^3.4.9",

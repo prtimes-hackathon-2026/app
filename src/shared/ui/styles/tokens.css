@@ -32,8 +32,14 @@
 
   --c-primary: #1668c9;
   --c-primary-hover: #12559f;
+  /* 青の一番濃いところ。ロゴなど、面で置くと主色では軽い場所に使う */
+  --c-primary-strong: #0e4278;
   --c-primary-soft: #eaf2fc;
   --c-on-primary: #ffffff;
+
+  /* エラー・失敗の表示 (疎通失敗のバッジなど) */
+  --c-danger: #b42318;
+  --c-danger-soft: #fdeceb;
 
   --c-focus: #4c8ee0;
   --c-backdrop: rgb(0 0 0 / 35%);
