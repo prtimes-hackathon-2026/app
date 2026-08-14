@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) as {
       messages?: ChatMessage[]
       memo?: string
+      analysisMode?: 'initial' | 'full'
     }
 
     const result = await prCompassFeature.advanceConversation({
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
         (m) => m.role === 'user' || m.role === 'assistant',
       ),
       memo: body.memo ?? '',
+      insightMode: body.analysisMode === 'initial' ? 'initial' : 'full',
     })
 
     return NextResponse.json(result)

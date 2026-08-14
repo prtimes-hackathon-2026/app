@@ -9,7 +9,10 @@ import {
 } from '../domain/conversation'
 import type { Block } from '../domain/block'
 import type { Insight } from '../domain/insight'
-import type { InsightRepository } from '../domain/insight-repository'
+import type {
+  InsightLoadMode,
+  InsightRepository,
+} from '../domain/insight-repository'
 import type { Classifier, Narrator } from '../domain/language'
 import { readKeyPoints } from '../infrastructure/article-reader'
 import { toScript } from '../infrastructure/voice.openai'
@@ -33,6 +36,8 @@ export type AdvanceInput = {
   messages: readonly ChatMessage[]
   /** 前ターンまでのメモ。画面が持っていない場合は空でよい */
   memo?: string
+  /** 初回の現在地表示と、比較指標まで含む完全分析を呼び分ける */
+  insightMode?: InsightLoadMode
 }
 
 export type AdvanceResult = {
@@ -124,14 +129,12 @@ export function advanceConversation(deps: {
   classifier: Classifier
   narrator: Narrator
 }): AdvanceConversation {
-  return async ({ companyId, messages, memo = '' }) => {
+  return async ({ companyId, messages, memo = '', insightMode = 'full' }) => {
     const requestStartedAt = performance.now()
     const timings: Record<string, number> = {}
     const step = deriveStep(messages)
-    // 初回こそ、選択企業の現在地だけでなく同業比較まで返す。
-    // `initial` は高速だが比較指標を空にするため、最初の価値提示が欠けてしまう。
     const insight = await measured(timings, 'insights', () =>
-      deps.insights.load(companyId, 'full'),
+      deps.insights.load(companyId, insightMode),
     )
     if (!insight) {
       return {

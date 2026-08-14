@@ -343,6 +343,7 @@ export default function PrCompassPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
   const [phase, setPhase] = useState<Phase>('discovery')
   const [memo, setMemo] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
@@ -356,6 +357,7 @@ export default function PrCompassPage() {
   const speechRequestRef = useRef(0)
   const lastAutoSpokenIndexRef = useRef(-1)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  const conversationStartedRef = useRef(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -363,47 +365,97 @@ export default function PrCompassPage() {
 
   // 初回AIメッセージを取得
   useEffect(() => {
-    const startedAt = performance.now()
-    fetch('/api/pr-compass/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [] }),
-    })
-      .then(async (response) => {
-        const payload = await response.json()
-        console.info(
-          '[pr-compass:timing]',
-          JSON.stringify({
-            stage: 'initial-fetch',
-            status: response.status,
-            durationMs: Math.round(performance.now() - startedAt),
-          }),
-        )
-        if (!response.ok) throw new Error(`chat failed: ${response.status}`)
-        return payload
+    const controller = new AbortController()
+    let active = true
+
+    async function requestAnalysis(analysisMode: 'initial' | 'full') {
+      const startedAt = performance.now()
+      const response = await fetch('/api/pr-compass/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [], analysisMode }),
+        signal: controller.signal,
       })
-      .then(({ content, phase: p, memo: m, suggestions: s, blocks }) => {
+      const payload = await response.json()
+      console.info(
+        '[pr-compass:timing]',
+        JSON.stringify({
+          stage: `${analysisMode}-fetch`,
+          status: response.status,
+          durationMs: Math.round(performance.now() - startedAt),
+        }),
+      )
+      if (!response.ok) throw new Error(`chat failed: ${response.status}`)
+      return payload
+    }
+
+    async function initialize() {
+      try {
+        const {
+          content,
+          phase: p,
+          memo: m,
+          suggestions: s,
+          blocks,
+        } = await requestAnalysis('initial')
+        if (!active) return
+
         setMessages([{ role: 'assistant', content, blocks }])
         if (p) setPhase(p as Phase)
         if (m) setMemo(m)
         setSuggestions(Array.isArray(s) ? s : [])
-      })
-      .catch(() => {
-        setMessages([
-          {
-            role: 'assistant',
-            content:
-              '申し訳ありません。接続に問題が発生しました。しばらく経ってから再度お試しください。',
-          },
-        ])
-      })
-      .finally(() => setLoading(false))
+        setLoading(false)
+      } catch (error) {
+        if (!active) return
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setMessages([
+            {
+              role: 'assistant',
+              content:
+                '申し訳ありません。接続に問題が発生しました。しばらく経ってから再度お試しください。',
+            },
+          ])
+        }
+        setLoading(false)
+        return
+      }
+
+      setAnalysisLoading(true)
+      try {
+        const {
+          content,
+          phase: p,
+          memo: m,
+          suggestions: s,
+          blocks,
+        } = await requestAnalysis('full')
+        if (!active || conversationStartedRef.current) return
+
+        setMessages([{ role: 'assistant', content, blocks }])
+        if (p) setPhase(p as Phase)
+        if (m) setMemo(m)
+        setSuggestions(Array.isArray(s) ? s : [])
+      } catch (error) {
+        // 完全分析が失敗しても、先に表示した企業固有の現在地は残す。
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.error('PR Compass initial analysis error:', error)
+        }
+      } finally {
+        if (active) setAnalysisLoading(false)
+      }
+    }
+
+    void initialize()
+    return () => {
+      active = false
+      controller.abort()
+    }
   }, [])
 
   // 最下部へスクロール
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, loading, analysisLoading])
 
   // テキストエリアの高さ自動調整
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -527,6 +579,7 @@ export default function PrCompassPage() {
   const send = useCallback(async () => {
     const text = input.trim()
     if (!text || loading || isComplete) return
+    conversationStartedRef.current = true
     stopSpeaking()
 
     const newMessages: Message[] = [
@@ -654,7 +707,7 @@ export default function PrCompassPage() {
             </div>
           ))}
 
-          {loading && <TypingDots />}
+          {(loading || analysisLoading) && <TypingDots />}
 
           {isComplete && (
             <div className={styles.completeBanner}>
