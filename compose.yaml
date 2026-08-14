@@ -19,6 +19,9 @@ services:
       STATS_DATABASE_POOL_MAX: '5'
       # PR羅針盤 AI コーチング機能
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # 簡易ログイン。既定の鍵はローカル専用 (固定にしてあるので再起動しても入り直さずに済む)
+      AUTH_PASSWORD: ${AUTH_PASSWORD:-prtimes}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-compose-only-session-secret-32chars}
     depends_on:
       app-db:
         condition: service_healthy

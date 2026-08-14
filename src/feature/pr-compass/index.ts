@@ -5,6 +5,7 @@ import {
   openAiClassifier,
   openAiNarrator,
 } from './infrastructure/language.openai'
+import { drizzleCompanyDirectory } from './infrastructure/company-directory.drizzle'
 import { drizzleInsightRepository } from './infrastructure/insight-repository.drizzle'
 import { listen, speak, voiceReady } from './infrastructure/voice.openai'
 
@@ -13,6 +14,9 @@ export type {
   AdvanceResult,
 } from './application/advance-conversation'
 export type { Phase } from './domain/conversation'
+export type { StoppedCompany } from './domain/company-directory'
+
+const companies = drizzleCompanyDirectory()
 
 /**
  * この feature の合成ルート。app 層からはこのオブジェクト経由でのみ呼び出す。
@@ -32,4 +36,9 @@ export const prCompassFeature = {
   /** 話した音声を文字にする */
   listen,
   voiceReady,
+  /**
+   * ログイン後に「どの企業として使うか」を選ばせるための一覧。
+   * 認証が利用者と企業を結びつけるようになったら要らなくなる。
+   */
+  findStoppedCompanies: (limit = 15) => companies.findStoppedCompanies(limit),
 } as const
