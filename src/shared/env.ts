@@ -91,7 +91,7 @@ export function shouldMigrateOnStartup(): boolean {
 const authSchema = z.object({
   // 合言葉。既定値はデモ用で、公開する環境では必ず差し替える
   AUTH_PASSWORD: z.string().min(1).default('prtimes'),
-  // セッション Cookie の署名鍵。production では必須 (下の authConfig を参照)
+  // セッション Cookie の署名鍵。未設定でも動くが、production では設定する (下の authConfig)
   AUTH_SESSION_SECRET: z.string().min(32).optional(),
 })
 
@@ -104,10 +104,39 @@ export type AuthConfig = {
  * 開発用の署名鍵。
  *
  * これで署名した Cookie は「開発機で作った」以上の意味を持たない。
- * production で鍵が未設定なら、この値に落ちる前に例外にする。
+ * 固定値にしているのは、`pnpm dev` が再起動するたびにログインし直さずに済むようにするため。
  */
 const developmentSessionSecret =
   'development-only-session-secret-do-not-use-in-production'
+
+/**
+ * 鍵が未設定のまま production で動かしてしまったときの落としどころ。
+ *
+ * 起動時に落とす手もあるが、DB の接続情報と違って安全な代わりを用意できる。
+ * 乱数で作れば署名の強度は落ちない (リポジトリを読める人にも偽造できない)。
+ * 代わりにプロセスをまたいでセッションを持ち回れないので、再起動でログアウトし、
+ * 複数タスク構成では入り直しを求められる。それが分かるように警告を出す。
+ *
+ * 鍵は `globalThis` に置く。Next.js はルートごとに別のモジュール実体を作るため、
+ * モジュールスコープに持つとルートハンドラと画面で違う鍵になり、
+ * 自分で署名した Cookie を自分で検証できなくなる。
+ */
+const generatedSecretProperty = '__appGeneratedSessionSecret'
+
+function generatedSessionSecret(): string {
+  const holder = globalThis as typeof globalThis & {
+    [generatedSecretProperty]?: string
+  }
+  if (holder[generatedSecretProperty] === undefined) {
+    holder[generatedSecretProperty] = crypto.randomUUID() + crypto.randomUUID()
+    console.warn(
+      'AUTH_SESSION_SECRET が未設定です。起動ごとの乱数で代用します' +
+        '(再起動やタスクの入れ替わりでログアウトします)。' +
+        'openssl rand -base64 32 で作った値を設定してください',
+    )
+  }
+  return holder[generatedSecretProperty]
+}
 
 let cachedAuth: AuthConfig | undefined
 
@@ -128,15 +157,14 @@ export function authConfig(): AuthConfig {
   }
 
   const secret = parsed.data.AUTH_SESSION_SECRET
-  if (secret === undefined && process.env.NODE_ENV === 'production') {
-    throw new Error(
-      'AUTH_SESSION_SECRET が未設定です。32 文字以上の値を設定してください (openssl rand -base64 32)',
-    )
-  }
+  const fallback =
+    process.env.NODE_ENV === 'production'
+      ? generatedSessionSecret()
+      : developmentSessionSecret
 
   cachedAuth = {
     password: parsed.data.AUTH_PASSWORD,
-    sessionSecret: secret ?? developmentSessionSecret,
+    sessionSecret: secret ?? fallback,
   }
   return cachedAuth
 }
